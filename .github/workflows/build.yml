@@ -1,0 +1,94 @@
+name: Build Android + Windows + iOS (web)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.9' }
+      - name: Copy web app into Android assets
+        run: mkdir -p app/src/main/assets && cp index.html app/src/main/assets/index.html
+      - name: Build signed APK
+        run: gradle :app:assembleRelease --no-daemon --stacktrace
+      - run: cp app/build/outputs/apk/release/app-release.apk altaka-alwataniyah-field.apk
+      - uses: actions/upload-artifact@v4
+        with: { name: android, path: altaka-alwataniyah-field.apk }
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Copy web app
+        shell: bash
+        run: mkdir -p desktop/app && cp index.html icon-192.png icon-512.png desktop/app/
+      - name: Build Windows installer + portable
+        working-directory: desktop
+        env: { CSC_IDENTITY_AUTO_DISCOVERY: 'false' }
+        run: |
+          npm install --no-audit --no-fund
+          npx electron-builder --win --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: |
+            desktop/dist/altaka-alwataniyah-field-setup.exe
+            desktop/dist/altaka-alwataniyah-field-portable.exe
+
+  gateway:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package ERP gateway (server + admin + web app)
+        run: |
+          mkdir -p erp-gateway/public/app
+          cp index.html manifest.json sw.js icon-180.png icon-192.png icon-512.png erp-gateway/public/app/
+          rm -rf erp-gateway/data
+          zip -r altaka-alwataniyah-field-gateway.zip erp-gateway
+      - uses: actions/upload-artifact@v4
+        with: { name: gateway, path: altaka-alwataniyah-field-gateway.zip }
+
+  # نسخة الآيفون: تطبيق ويب يُضاف إلى الشاشة الرئيسية من Safari
+  ios-web:
+    runs-on: ubuntu-latest
+    environment: { name: github-pages, url: '${{ steps.deploy.outputs.page_url }}' }
+    steps:
+      - uses: actions/checkout@v4
+      - run: mkdir -p _site && cp index.html manifest.json sw.js icon-*.png .nojekyll _site/
+      - uses: actions/configure-pages@v5
+        with: { enablement: true }
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: _site }
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+  release:
+    needs: [ android, windows, gateway ]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { path: out, merge-multiple: true }
+      - name: Publish release
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          ls -la out
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest out/* \
+            --title "الموظف الميداني – الطاقة الوطنية – الإصدار 1.${{ github.run_number }}" \
+            --notes "أندرويد: altaka-alwataniyah-field.apk · ويندوز: altaka-alwataniyah-field-setup.exe (تثبيت) أو altaka-alwataniyah-field-portable.exe (بدون تثبيت) · الآيفون: افتح رابط GitHub Pages في Safari ثم «إضافة إلى الشاشة الرئيسية» · خادم الربط مع ERP: altaka-alwataniyah-field-gateway.zip" \
+            --latest

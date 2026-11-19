@@ -1,0 +1,7 @@
+.gradle/
+build/
+app/build/
+local.properties
+app/src/main/assets/index.html
+erp-gateway/data/
+node_modules/

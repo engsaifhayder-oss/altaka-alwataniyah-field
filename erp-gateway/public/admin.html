@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>الميدان – لوحة متابعة الموظفين الميدانيين | ALTAKA-ALWATANIYAH</title>
+<style>
+:root{--dk:#002816;--dk2:#0b4a2c;--lime:#97d214;--bg:#f2f5f1;--card:#fff;--ink:#0f1c15;--mut:#4d5d54;--line:#d9e2db;--err:#b3261e;--warn:#b26a00;--ok:#1d7a3a;
+--f:"Cairo","Noto Kufi Arabic","Noto Sans Arabic","Segoe UI",Tahoma,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f);font-size:15px}
+a{color:var(--dk2)}
+.app{display:flex;min-height:100vh}
+aside{width:240px;background:var(--dk);color:#fff;flex-shrink:0;position:sticky;top:0;height:100vh;display:flex;flex-direction:column}
+aside .brand{padding:18px 16px;border-bottom:1px solid rgba(255,255,255,.12)}
+aside .brand b{display:block;font-size:17px}
+aside .brand small{color:var(--lime);font-size:12px;letter-spacing:.5px}
+aside nav{padding:10px 8px;flex:1;overflow:auto}
+aside nav button{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;color:#e6efe8;font:inherit;font-size:15px;padding:11px 12px;border-radius:10px;cursor:pointer;text-align:right}
+aside nav button:hover{background:rgba(255,255,255,.07)}
+aside nav button.on{background:var(--lime);color:var(--dk);font-weight:700}
+aside nav .badge{margin-inline-start:auto;background:var(--err);color:#fff;font-size:11px;border-radius:10px;padding:1px 7px}
+aside .out{padding:12px;border-top:1px solid rgba(255,255,255,.12)}
+main{flex:1;padding:20px 22px 60px;min-width:0}
+h1{font-size:21px;margin:0 0 14px;color:var(--dk);display:flex;align-items:center;gap:10px}
+h1 .back{font:inherit;font-size:14px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:4px 10px;cursor:pointer}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px}
+.card h2{font-size:16px;margin:0 0 12px;color:var(--dk2)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px}
+.kpi .v{font-size:28px;font-weight:700;color:var(--dk)}
+.kpi .l{color:var(--mut);font-size:13px}
+.kpi.red .v{color:var(--err)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}
+th{background:#f6f9f5;color:var(--dk2);font-weight:700;position:sticky;top:0}
+tr:hover td{background:#fafcf9}
+.tw{overflow:auto;max-height:70vh;border:1px solid var(--line);border-radius:10px}
+.sel{width:54px;height:54px;object-fit:cover;border-radius:8px;cursor:zoom-in;border:1px solid var(--line)}
+.pill{display:inline-block;font-size:12px;padding:2px 9px;border-radius:20px;background:#e8efe9;color:var(--dk2);white-space:nowrap}
+.pill.ok{background:#e3f4e8;color:var(--ok)}.pill.bad{background:#fde8e6;color:var(--err)}.pill.warn{background:#fff3df;color:var(--warn)}
+.flag{display:block;color:var(--err);font-size:12px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+.f{display:flex;flex-direction:column;gap:4px;min-width:160px;flex:1}
+label{font-size:13px;color:var(--mut)}
+input,select,textarea{font:inherit;font-size:15px;padding:9px 10px;border:1px solid #c8d3cb;border-radius:9px;background:#fbfdfb;color:var(--ink);width:100%}
+textarea{min-height:70px}
+.btn{font:inherit;border:0;border-radius:10px;padding:9px 16px;font-size:14px;cursor:pointer;background:var(--dk);color:#fff;white-space:nowrap}
+.btn.lime{background:var(--lime);color:var(--dk);font-weight:700}
+.btn.ghost{background:#fff;color:var(--dk);border:1px solid #c8d3cb}
+.btn.red{background:#fff;color:var(--err);border:1px solid #f0c4c0}
+.btn.sm{padding:5px 10px;font-size:13px}
+.mut{color:var(--mut);font-size:13px}
+.hidden{display:none!important}
+.login{min-height:100vh;display:grid;place-items:center;background:var(--dk)}
+.login .box{background:#fff;border-radius:18px;padding:26px;width:min(380px,92vw)}
+.login h2{margin:0 0 4px;color:var(--dk)}
+.ov{position:fixed;inset:0;background:rgba(0,20,10,.6);display:grid;place-items:center;z-index:50;padding:20px}
+.dlg{background:#fff;border-radius:16px;max-width:900px;width:100%;max-height:92vh;overflow:auto;padding:20px}
+.dlg h3{margin:0 0 12px;color:var(--dk)}
+.media{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.media img,.media video{width:100%;border-radius:10px;border:1px solid var(--line);background:#000}
+.kv{display:grid;grid-template-columns:200px 1fr;gap:4px 12px;font-size:14px;margin-bottom:12px}
+.kv div:nth-child(odd){color:var(--mut)}
+.chk{display:flex;flex-wrap:wrap;gap:6px}
+.chk label{display:flex;gap:5px;align-items:center;border:1px solid var(--line);border-radius:8px;padding:5px 9px;color:var(--ink);font-size:14px;cursor:pointer}
+.chk input{width:auto}
+.steps{display:flex;gap:3px}
+.steps span{width:16px;height:8px;border-radius:3px;background:#dfe6e0}
+.steps span.on{background:var(--lime)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--dk);color:#fff;padding:10px 18px;border-radius:10px;z-index:60}
+/* طباعة الباركود */
+.codes{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.code{border:2px solid var(--dk);border-radius:14px;padding:14px;text-align:center;background:#fff;page-break-inside:avoid}
+.code .h{font-weight:700;color:var(--dk);font-size:16px}
+.code .s{color:var(--mut);font-size:13px;margin-bottom:8px}
+.code svg{width:100%;height:110px}
+.code .txt{font-family:monospace;font-size:11px;direction:ltr;color:#333}
+@media print{aside,.noprint{display:none!important}main{padding:0}.card{border:0}}
+@media(max-width:820px){aside{position:fixed;bottom:0;top:auto;height:auto;width:100%;z-index:10;flex-direction:row}aside .brand,aside .out{display:none}aside nav{display:flex;overflow-x:auto;padding:6px}aside nav button{white-space:nowrap;font-size:13px;padding:8px}main{padding:14px 10px 90px}.kv{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="loginView" class="login">
+  <form class="box" id="loginForm">
+    <h2>الميدان</h2>
+    <p class="mut">لوحة متابعة الموظفين الميدانيين – الطاقة الوطنية</p>
+    <div class="f" style="margin-bottom:10px"><label>اسم المستخدم</label><input id="lu" value="admin" autocomplete="username"></div>
+    <div class="f" style="margin-bottom:14px"><label>كلمة المرور</label><input id="lp" type="password" autocomplete="current-password"></div>
+    <button class="btn lime" style="width:100%">دخول</button>
+    <p id="lerr" class="flag"></p>
+  </form>
+</div>
+
+<div id="appView" class="app hidden">
+  <aside>
+    <div class="brand"><b>الميدان</b><small>ALTAKA-ALWATANIYAH · FIELD</small></div>
+    <nav id="nav"></nav>
+    <div class="out"><button class="btn ghost" style="width:100%" onclick="logout()">تسجيل الخروج</button></div>
+  </aside>
+  <main id="main"></main>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let T=localStorage.getItem('nef_admin_t')||'';let D=null;let view='dash';let hist=[];
+const TYPE={inspection:'كشف ميداني',execution:'تنفيذ'};
+const STATUS={assigned:'مُسندة',in_progress:'قيد العمل',work_done:'أُنجز العمل',completed:'مكتملة',cancelled:'ملغاة',closed:'مغلقة'};
+const NAV=[['dash','الرئيسية'],['att','سجل الحضور والخطوات'],['tasks','المهام'],['forms','الاستمارات'],['obs','المعوقات'],['reports','التقارير المرفوعة'],['emps','الموظفون'],['wh','المخازن والمعدات'],['codes','طباعة الباركود'],['settings','الإعدادات والربط']];
+
+async function api(p,opt={}){
+  const r=await fetch(p,Object.assign({headers:{'Content-Type':'application/json','Authorization':'Bearer '+T}},opt));
+  if(r.status===401){logout();throw new Error('401');}
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.message||j.error||r.status);
+  return j;
+}
+function toast(m){const d=document.createElement('div');d.className='toast';d.textContent=m;document.body.appendChild(d);setTimeout(()=>d.remove(),2600)}
+function media(p){return '/media/'+p+'?t='+T}
+function fmt(t){if(!t)return '';const d=new Date(t);return d.toLocaleDateString('ar-IQ',{timeZone:'Asia/Baghdad'})+' '+d.toLocaleTimeString('ar-IQ',{timeZone:'Asia/Baghdad',hour:'2-digit',minute:'2-digit'})}
+const emp=id=>(D.employees.find(e=>e.id===id)||{});
+const task=id=>(D.tasks.find(t=>t.id===id)||{});
+const stepT=k=>(D.steps.find(s=>s.k===k)||{}).t||k;
+function flagsHtml(f){return (f&&f.length)?f.map(x=>`<span class="flag">⚠ ${esc(x)}</span>`).join(''):'<span class="pill ok">سليم</span>'}
+
+$('#loginForm').onsubmit=async e=>{e.preventDefault();$('#lerr').textContent='';
+  try{const r=await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:$('#lu').value,pass:$('#lp').value})});
+    const j=await r.json();if(!r.ok)throw 0;T=j.token;localStorage.setItem('nef_admin_t',T);await boot();if(j.mustChangePass){go('settings');toast('يرجى تغيير كلمة المرور الافتراضية')}}
+  catch(_){$('#lerr').textContent='بيانات الدخول غير صحيحة'}};
+function logout(){T='';localStorage.removeItem('nef_admin_t');$('#appView').classList.add('hidden');$('#loginView').classList.remove('hidden')}
+
+async function load(){D=await api('/api/admin/all')}
+async function boot(){await load();$('#loginView').classList.add('hidden');$('#appView').classList.remove('hidden');render();setInterval(async()=>{if(!document.querySelector('.ov')&&!['tasks','emps','wh','settings'].includes(view)){await load();render()}},30000)}
+function go(v,push=true){if(push&&v!==view)hist.push(view);view=v;render();window.scrollTo(0,0)}
+function back(){go(hist.pop()||'dash',false)}
+function renderNav(){const bad=D.events.filter(e=>e.flags&&e.flags.length&&!e.review).length;const ob=D.obstacles.filter(o=>!o.review).length;
+  $('#nav').innerHTML=NAV.map(([k,t])=>`<button class="${k===view?'on':''}" onclick="go('${k}')">${t}${k==='att'&&bad?`<span class="badge">${bad}</span>`:''}${k==='obs'&&ob?`<span class="badge">${ob}</span>`:''}</button>`).join('')}
+function head(t){return `<h1>${view!=='dash'?'<button class="back noprint" onclick="back()">→ رجوع</button>':''}${t}</h1>`}
+function render(){renderNav();$('#main').innerHTML=(V[view]||V.dash)()}
+
+const V={};
+V.dash=()=>{
+  const today=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Baghdad'});
+  const ev=D.events.filter(e=>new Date(e.correctedTime||e.deviceTime).toLocaleDateString('en-CA',{timeZone:'Asia/Baghdad'})===today);
+  const present=new Set(ev.filter(e=>e.step==='wh_in').map(e=>e.employeeId));
+  const active=D.tasks.filter(t=>['assigned','in_progress','work_done'].includes(t.status));
+  const flagged=D.events.filter(e=>e.flags&&e.flags.length&&!e.review);
+  return head('الرئيسية – متابعة الميدان')+`
+  <div class="kpis">
+    <div class="kpi"><div class="v">${present.size}</div><div class="l">موظفون حضروا اليوم</div></div>
+    <div class="kpi"><div class="v">${ev.length}</div><div class="l">خطوات مسجّلة اليوم</div></div>
+    <div class="kpi"><div class="v">${active.length}</div><div class="l">مهام مفتوحة</div></div>
+    <div class="kpi"><div class="v">${D.tasks.filter(t=>t.status==='completed').length}</div><div class="l">مهام مكتملة</div></div>
+    <div class="kpi red"><div class="v">${flagged.length}</div><div class="l">سجلات تحتاج تدقيق</div></div>
+    <div class="kpi red"><div class="v">${D.obstacles.filter(o=>!o.review).length}</div><div class="l">معوقات جديدة</div></div>
+  </div>
+  <div class="card"><h2>آخر الخطوات المسجّلة</h2>${attTable(D.events.slice().reverse().slice(0,12))}</div>
+  <div class="card"><h2>المهام المفتوحة</h2>${tasksTable(active)}</div>`};
+
+function attTable(list){if(!list.length)return '<p class="mut">لا توجد سجلات بعد.</p>';
+  return `<div class="tw"><table><tr><th>السيلفي</th><th>الموظف</th><th>الخطوة</th><th>المهمة</th><th>الوقت</th><th>الموقع</th><th>التحقق</th><th></th></tr>${list.map(e=>{const s=(e.files||[]).find(f=>f.field==='selfie');const t=task(e.taskId);const g=e.gps||{};
+  return `<tr><td>${s?`<img class="sel" src="${media(s.path)}" onclick="showImg('${media(s.path)}')">`:'—'}</td><td><b>${esc(e.employeeName)}</b><div class="mut">${esc(emp(e.employeeId).code)}</div></td><td>${esc(stepT(e.step))}</td><td>${esc(t.title||e.taskId)}</td>
+  <td>${fmt(e.correctedTime||e.deviceTime)}<div class="mut">استُلم: ${fmt(e.receivedAt)}</div></td>
+  <td>${g.lat!=null?`<a target="_blank" href="https://maps.google.com/?q=${g.lat},${g.lng}">خريطة</a><div class="mut">±${Math.round(g.accuracy||0)}م${e.distanceM!=null?' · يبعد '+e.distanceM+'م':''}</div>`:'—'}</td>
+  <td>${flagsHtml(e.flags)}${e.review?`<div class="pill ${e.review.status==='ok'?'ok':'bad'}">${e.review.status==='ok'?'تمت المصادقة':'مرفوض'}</div>`:''}</td>
+  <td><button class="btn sm ghost" onclick="evDetail('${e.id}')">تفاصيل</button></td></tr>`}).join('')}</table></div>`}
+
+V.att=()=>{const q=(window._attQ||{});let list=D.events.slice().reverse();
+  if(q.emp)list=list.filter(e=>e.employeeId===q.emp);if(q.date)list=list.filter(e=>new Date(e.correctedTime||e.deviceTime).toLocaleDateString('en-CA',{timeZone:'Asia/Baghdad'})===q.date);if(q.flag)list=list.filter(e=>e.flags&&e.flags.length);
+  return head('سجل الحضور والانصراف وخطوات العمل')+`<div class="card noprint"><div class="row">
+   <div class="f"><label>الموظف</label><select onchange="_attQ=Object.assign(_attQ||{},{emp:this.value});render()"><option value="">الكل</option>${D.employees.map(e=>`<option value="${e.id}" ${q.emp===e.id?'selected':''}>${esc(e.name)} (${esc(e.code)})</option>`).join('')}</select></div>
+   <div class="f"><label>التاريخ</label><input type="date" value="${q.date||''}" onchange="_attQ=Object.assign(_attQ||{},{date:this.value});render()"></div>
+   <div class="f" style="flex:0"><label>&nbsp;</label><label style="display:flex;gap:6px;align-items:center;white-space:nowrap"><input type="checkbox" style="width:auto" ${q.flag?'checked':''} onchange="_attQ=Object.assign(_attQ||{},{flag:this.checked});render()"> المشبوهة فقط</label></div>
+   <a class="btn lime" href="/api/admin/attendance.csv?t=${T}">تصدير Excel (CSV)</a></div></div>
+   <div class="card">${attTable(list)}</div>`};
+
+window.evDetail=id=>{const e=D.events.find(x=>x.id===id);const t=task(e.taskId);const g=e.gps||{};const s=(e.files||[]).find(f=>f.field==='selfie');
+  dlg(`<h3>${esc(stepT(e.step))}</h3><div class="kv">
+  <div>الموظف</div><div>${esc(e.employeeName)} (${esc(emp(e.employeeId).code)})</div><div>المهمة</div><div>${esc(t.title||'')} – ${esc(t.customerName||'')}</div>
+  <div>وقت الهاتف</div><div>${fmt(e.deviceTime)}</div><div>الوقت المصحّح (حسب الخادم)</div><div>${fmt(e.correctedTime)}</div><div>وقت وصوله للخادم</div><div>${fmt(e.receivedAt)}</div>
+  <div>الباركود الممسوح</div><div dir="ltr" style="text-align:right;font-family:monospace">${esc(e.code)}</div>
+  <div>الموقع</div><div>${g.lat!=null?`${g.lat.toFixed(6)}, ${g.lng.toFixed(6)} (±${Math.round(g.accuracy)}م) <a target="_blank" href="https://maps.google.com/?q=${g.lat},${g.lng}">فتح الخريطة</a>`:'غير متوفر'}</div>
+  <div>المعدات</div><div>${(e.equipment||[]).map(q=>esc(q.name)+' × '+esc(q.qty)+(q.note?' ('+esc(q.note)+')':'')).join('، ')||'—'}</div>
+  <div>ملاحظة</div><div>${esc(e.note||'—')}</div><div>الجهاز</div><div class="mut">${esc((e.device||'')+' ')}${e.integrity?esc(JSON.stringify(e.integrity)):''}</div>
+  <div>بصمة السيلفي SHA-256</div><div class="mut" style="direction:ltr;text-align:right;word-break:break-all">${s?s.sha256:''}</div>
+  <div>التحقق</div><div>${flagsHtml(e.flags)}</div></div>
+  ${s?`<img src="${media(s.path)}" style="max-width:360px;width:100%;border-radius:12px">`:''}
+  ${reviewBox('events',e)}`)};
+function reviewBox(coll,it){return `<div class="row" style="margin-top:14px"><div class="f"><label>ملاحظة التدقيق</label><input id="rvn" value="${esc((it.review||{}).note||'')}"></div>
+  <button class="btn lime" onclick="review('${coll}','${it.id}','ok')">مصادقة</button><button class="btn red" onclick="review('${coll}','${it.id}','rejected')">رفض</button><button class="btn ghost" onclick="closeDlg()">إغلاق</button></div>`}
+window.review=async(coll,id,status)=>{await api('/api/admin/review',{method:'POST',body:JSON.stringify({coll,id,status,note:$('#rvn').value})});closeDlg();await load();render();toast('تم الحفظ')};
+
+function tasksTable(list){if(!list.length)return '<p class="mut">لا توجد مهام.</p>';
+  return `<div class="tw"><table><tr><th>المهمة</th><th>النوع</th><th>الزبون</th><th>المكلّفون</th><th>التقدّم</th><th>الحالة</th><th></th></tr>${list.map(t=>{const done=new Set(D.events.filter(e=>e.taskId===t.id).map(e=>e.step));
+  return `<tr><td><b>${esc(t.title)}</b><div class="mut">${esc(t.date||'')} ${t.contractNo?'· عقد '+esc(t.contractNo):''}</div></td><td>${TYPE[t.type]||''}</td><td>${esc(t.customerName)}<div class="mut">${esc(t.customerPhone)}</div></td>
+  <td>${(t.assignees||[]).map(a=>esc(emp(a).name)).join('، ')}</td><td><div class="steps">${D.steps.map(s=>`<span class="${done.has(s.k)?'on':''}" title="${s.t}"></span>`).join('')}</div></td>
+  <td><span class="pill ${t.status==='completed'?'ok':t.status==='cancelled'?'bad':''}">${STATUS[t.status]||t.status}</span>${t.hasObstacle?' <span class="pill warn">معوّق</span>':''}</td>
+  <td style="white-space:nowrap"><button class="btn sm ghost" onclick="taskDetail('${t.id}')">عرض</button> <button class="btn sm ghost" onclick="taskForm('${t.id}')">تعديل</button></td></tr>`}).join('')}</table></div>`}
+V.tasks=()=>head('المهام (الكشف والتنفيذ)')+`<div class="card noprint"><button class="btn lime" onclick="taskForm()">+ مهمة جديدة</button> <span class="mut">تظهر المهمة تلقائياً في تطبيق الموظفين المكلّفين بها.</span></div><div class="card">${tasksTable(D.tasks.slice().reverse())}</div>`;
+window.taskForm=id=>{const t=id?task(id):{type:'inspection',assignees:[],date:new Date().toLocaleDateString('en-CA')};
+  dlg(`<h3>${id?'تعديل مهمة':'مهمة جديدة'}</h3><div class="row">
+  <div class="f"><label>نوع المهمة *</label><select id="t_type"><option value="inspection" ${t.type==='inspection'?'selected':''}>كشف ميداني</option><option value="execution" ${t.type==='execution'?'selected':''}>تنفيذ</option></select></div>
+  <div class="f"><label>التاريخ</label><input id="t_date" type="date" value="${esc(t.date)}"></div><div class="f"><label>رقم العقد</label><input id="t_contract" value="${esc(t.contractNo)}"></div></div>
+  <div class="row" style="margin-top:8px"><div class="f"><label>اسم الزبون *</label><input id="t_cname" value="${esc(t.customerName)}"></div><div class="f"><label>هاتف الزبون</label><input id="t_cphone" dir="ltr" value="${esc(t.customerPhone)}"></div><div class="f"><label>سعة المنظومة</label><input id="t_cap" value="${esc(t.systemCapacity)}"></div></div>
+  <div class="row" style="margin-top:8px"><div class="f" style="flex:2"><label>العنوان</label><input id="t_addr" value="${esc(t.address)}"></div><div class="f"><label>خط العرض (اختياري)</label><input id="t_lat" dir="ltr" value="${t.lat??''}" placeholder="32.48"></div><div class="f"><label>خط الطول (اختياري)</label><input id="t_lng" dir="ltr" value="${t.lng??''}" placeholder="44.42"></div><div class="f"><label>النطاق المسموح (م)</label><input id="t_rad" value="${t.radiusM||300}"></div></div>
+  <p class="mut">إذا تُرك الموقع فارغاً، يُعتمد أول موقع يسجّله الموظف عند الوصول للزبون مرجعاً للمطابقة.</p>
+  <div class="row"><div class="f"><label>المخزن</label><select id="t_wh">${D.warehouses.filter(w=>w.active!==false).map(w=>`<option value="${w.id}" ${t.warehouseId===w.id?'selected':''}>${esc(w.name)}</option>`).join('')}</select></div></div>
+  <div style="margin-top:10px"><label>الموظفون المكلّفون *</label><div class="chk">${D.employees.filter(e=>e.active).map(e=>`<label><input type="checkbox" class="t_as" value="${e.id}" ${(t.assignees||[]).includes(e.id)?'checked':''}>${esc(e.name)}</label>`).join('')}</div></div>
+  <div style="margin-top:10px"><label>ملاحظات للموظف</label><textarea id="t_notes">${esc(t.notes)}</textarea></div>
+  ${id?`<div class="row" style="margin-top:8px"><div class="f"><label>الحالة</label><select id="t_status">${Object.entries(STATUS).map(([k,v])=>`<option value="${k}" ${t.status===k?'selected':''}>${v}</option>`).join('')}</select></div></div>`:''}
+  <div class="row" style="margin-top:14px"><button class="btn lime" onclick="saveTask('${id||''}')">حفظ</button><button class="btn ghost" onclick="closeDlg()">إلغاء</button></div>`)};
+window.saveTask=async id=>{const b={id:id||undefined,type:$('#t_type').value,date:$('#t_date').value,contractNo:$('#t_contract').value,customerName:$('#t_cname').value,customerPhone:$('#t_cphone').value,systemCapacity:$('#t_cap').value,address:$('#t_addr').value,lat:$('#t_lat').value,lng:$('#t_lng').value,radiusM:$('#t_rad').value,warehouseId:$('#t_wh').value,notes:$('#t_notes').value,assignees:[...document.querySelectorAll('.t_as:checked')].map(x=>x.value)};
+  if(id)b.status=$('#t_status').value;if(!b.assignees.length)return toast('اختر موظفاً واحداً على الأقل');
+  try{await api('/api/admin/tasks',{method:'POST',body:JSON.stringify(b)});closeDlg();await load();render();toast('تم حفظ المهمة')}catch(e){toast(e.message)}};
+window.taskDetail=id=>{const t=task(id);const ev=D.events.filter(e=>e.taskId===id);const fm=D.forms.filter(f=>f.taskId===id);const ob=D.obstacles.filter(o=>o.taskId===id);
+  dlg(`<h3>${esc(t.title)}</h3><div class="kv"><div>النوع</div><div>${TYPE[t.type]}</div><div>الزبون</div><div>${esc(t.customerName)} · ${esc(t.customerPhone)}</div><div>العنوان</div><div>${esc(t.address)}</div><div>الحالة</div><div>${STATUS[t.status]}</div><div>المكلّفون</div><div>${(t.assignees||[]).map(a=>esc(emp(a).name)).join('، ')}</div></div>
+  <h3>الخطوات</h3>${attTable(ev)}<h3 style="margin-top:14px">الاستمارات</h3>${fm.map(f=>`<button class="btn sm ghost" onclick="formDetail('${f.id}')">${esc(f.title||'استمارة')} – ${fmt(f.createdAt)}</button>`).join(' ')||'<p class="mut">لا توجد</p>'}
+  <h3 style="margin-top:14px">المعوقات</h3>${ob.map(o=>`<button class="btn sm ghost" onclick="obsDetail('${o.id}')">${esc(o.category)} – ${fmt(o.createdAt)}</button>`).join(' ')||'<p class="mut">لا توجد</p>'}
+  <h3 style="margin-top:14px">باركود موقع الزبون</h3><p class="mut">يُطبع ويُسلّم مع أمر العمل أو يُلصق عند الزبون؛ يمسحه الموظف عند الوصول وعند إتمام العمل.</p>
+  <div class="codes">${codeCard('موقع الزبون: '+t.customerName,t.title,t.siteCode)}</div>
+  <div class="row" style="margin-top:14px"><button class="btn" onclick="printCodes([['موقع الزبون: ${esc(t.customerName).replace(/'/g,'')}','${esc(t.title).replace(/'/g,'')}','${t.siteCode}']])">طباعة الباركود</button><button class="btn ghost" onclick="closeDlg()">إغلاق</button></div>`)};
+
+/* الاستمارات */
+const FLABEL={date:'التاريخ',engineer:'المهندس/الفني',customer:'الزبون',phone:'الهاتف',address:'العنوان',sysType:'نوع المنظومة',devices:'أجهزة محددة',devicesNote:'الأجهزة المحددة',ampDay:'الأمبيرات نهاراً',ampNight:'الأمبيرات ليلاً',hours:'عدد الساعات',phase:'نوع الربط',area:'المساحة م²',roofNote:'ملاحظات السطح',boardState:'حالة البورد',mainCableSize:'مقطع الكيبل الرئيسي',mainCableLen:'طول الكيبل الرئيسي',panelCableLen:'طول كيبل الألواح',earth:'تأريض متوفر',elecNote:'ملاحظات كهربائية',panelsPlace:'مكان الألواح',height:'الارتفاع',inverterPlace:'مكان الانفرتر والبطاريات',modReq:'التعديل المطلوب',duration:'المدة المتوقعة',extras:'الإضافات',extraCost:'المبلغ الإضافي',contractNo:'رقم العقد',capacity:'سعة المنظومة',notes:'الملاحظات',customerSign:'اسم المستلم',satisfaction:'رضا الزبون',testResult:'نتيجة الفحص والتشغيل'};
+V.forms=()=>head('استمارات الكشف والتنفيذ')+`<div class="card">${D.forms.length?`<div class="tw"><table><tr><th>الاستمارة</th><th>الموظف</th><th>المهمة</th><th>الصور</th><th>التاريخ</th><th></th></tr>${D.forms.slice().reverse().map(f=>`<tr><td><b>${esc(f.title)}</b></td><td>${esc(f.employeeName)}</td><td>${esc(task(f.taskId).title||'')}</td><td>${(f.files||[]).length}</td><td>${fmt(f.createdAt)}</td><td><button class="btn sm ghost" onclick="formDetail('${f.id}')">عرض</button></td></tr>`).join('')}</table></div>`:'<p class="mut">لا توجد استمارات بعد.</p>'}</div>`;
+window.formDetail=id=>{const f=D.forms.find(x=>x.id===id);const v=f.values||{};
+  const items=(v.items||[]).map(i=>`${esc(i.name)}: ${esc(i.spec||'')} × ${esc(i.qty||'')} ${i.capacity?'('+esc(i.capacity)+')':''} ${i.warranty?'ضمان '+esc(i.warranty):''}`).join('<br>');
+  dlg(`<h3>${esc(f.title)}</h3><div class="kv"><div>الموظف</div><div>${esc(f.employeeName)}</div><div>المهمة</div><div>${esc(task(f.taskId).title||'')}</div>
+  ${Object.entries(v).filter(([k])=>k!=='items').map(([k,x])=>`<div>${esc(FLABEL[k]||k)}</div><div>${esc(x)}</div>`).join('')}${items?`<div>المواد المنفّذة</div><div>${items}</div>`:''}</div>
+  <div class="media">${(f.files||[]).map(x=>x.type.startsWith('image')?`<figure style="margin:0"><img src="${media(x.path)}" onclick="showImg('${media(x.path)}')" style="cursor:zoom-in"><figcaption class="mut">${esc((f.photoCats||{})[x.original]||x.field)}</figcaption></figure>`:`<a href="${media(x.path)}" target="_blank">${esc(x.original)}</a>`).join('')}</div>
+  ${reviewBox('forms',f)}`)};
+
+/* المعوقات */
+const OSTAT={undefined:'جديد'};
+V.obs=()=>head('المعوقات الميدانية')+`<div class="card">${D.obstacles.length?`<div class="tw"><table><tr><th>النوع</th><th>الموظف</th><th>المهمة</th><th>الوصف</th><th>المرفقات</th><th>الوقت</th><th>الحالة</th><th></th></tr>${D.obstacles.slice().reverse().map(o=>`<tr><td><b>${esc(o.category)}</b><div class="mut">${o.severity==='high'?'<span class="pill bad">عالي</span>':o.severity==='mid'?'<span class="pill warn">متوسط</span>':'<span class="pill">منخفض</span>'}</div></td><td>${esc(o.employeeName)}</td><td>${esc(task(o.taskId).title||'—')}</td><td>${esc((o.description||'').slice(0,90))}</td><td>🎥 ${(o.files||[]).filter(x=>x.type.startsWith('video')).length} · 📷 ${(o.files||[]).filter(x=>x.type.startsWith('image')).length}</td><td>${fmt(o.createdAt)}</td><td>${o.review?`<span class="pill ${o.review.status==='ok'?'ok':'bad'}">${o.review.status==='ok'?'تمت المعالجة':'مرفوض'}</span>`:'<span class="pill warn">جديد</span>'}</td><td><button class="btn sm ghost" onclick="obsDetail('${o.id}')">عرض</button></td></tr>`).join('')}</table></div>`:'<p class="mut">لا توجد معوقات مسجّلة.</p>'}</div>`;
+window.obsDetail=id=>{const o=D.obstacles.find(x=>x.id===id);const g=o.gps||{};
+  dlg(`<h3>معوّق: ${esc(o.category)}</h3><div class="kv"><div>الموظف</div><div>${esc(o.employeeName)}</div><div>المهمة</div><div>${esc(task(o.taskId).title||'—')}</div><div>الوقت</div><div>${fmt(o.createdAt)}</div>
+  <div>الموقع</div><div>${g.lat!=null?`<a target="_blank" href="https://maps.google.com/?q=${g.lat},${g.lng}">فتح الخريطة</a>`:'—'}</div><div>الوصف</div><div style="white-space:pre-wrap">${esc(o.description)}</div><div>الإجراء المقترح</div><div>${esc(o.suggestion||'—')}</div></div>
+  <h3>التسلسل الزمني للمقاطع والصور</h3><div class="media">${(o.files||[]).map(x=>{const c=(o.timeline||[]).find(q=>q.name===x.original)||{};return `<figure style="margin:0">${x.type.startsWith('video')?`<video controls preload="metadata" src="${media(x.path)}"></video>`:`<img src="${media(x.path)}" onclick="showImg('${media(x.path)}')">`}<figcaption class="mut">${c.at?fmt(c.at):''} ${c.duration?'· '+c.duration+' ث':''} ${c.caption?'· '+esc(c.caption):''}</figcaption></figure>`}).join('')}</div>
+  ${reviewBox('obstacles',o)}`)};
+
+/* التقارير */
+V.reports=()=>head('التقارير والاستمارات المرفوعة')+`<div class="card">${D.reports.length?`<div class="tw"><table><tr><th>العنوان</th><th>النوع</th><th>الموظف</th><th>المهمة</th><th>الملفات</th><th>التاريخ</th></tr>${D.reports.slice().reverse().map(r=>`<tr><td><b>${esc(r.title)}</b><div class="mut">${esc(r.notes||'')}</div></td><td>${esc(r.kind)}</td><td>${esc(r.employeeName)}</td><td>${esc(task(r.taskId).title||'—')}</td><td>${(r.files||[]).map(x=>`<a href="${media(x.path)}" target="_blank">${esc(x.original)}</a>`).join('<br>')}</td><td>${fmt(r.createdAt)}</td></tr>`).join('')}</table></div>`:'<p class="mut">لا توجد تقارير مرفوعة.</p>'}</div>`;
+
+/* الموظفون */
+V.emps=()=>head('الموظفون الميدانيون')+`<div class="card noprint"><button class="btn lime" onclick="empForm()">+ موظف جديد</button> <span class="mut">يدخل الموظف للتطبيق برقمه الوظيفي والرمز السري.</span></div>
+<div class="card"><div class="tw"><table><tr><th>الرقم</th><th>الاسم</th><th>القسم</th><th>العنوان الوظيفي</th><th>الهاتف</th><th>الحالة</th><th></th></tr>${D.employees.map(e=>`<tr><td>${esc(e.code)}</td><td><b>${esc(e.name)}</b></td><td>${esc(e.department)}</td><td>${esc(e.jobTitle)}</td><td dir="ltr" style="text-align:right">${esc(e.phone)}</td><td>${e.active?'<span class="pill ok">فعّال</span>':'<span class="pill bad">معطّل</span>'}</td><td><button class="btn sm ghost" onclick="empForm('${e.id}')">تعديل</button></td></tr>`).join('')}</table></div></div>`;
+const DEPTS=['الإدارة الهندسية','إدارة العمليات','إدارة العمليات – التنفيذ الميداني','إدارة العمليات – الطاقة المتجددة','إدارة المبيعات والتسويق','إدارة المشتريات والتجارة العامة','المخازن'];
+window.empForm=id=>{const e=id?emp(id):{active:true};
+  dlg(`<h3>${id?'تعديل موظف':'موظف جديد'}</h3><div class="row"><div class="f"><label>الرقم الوظيفي *</label><input id="e_code" value="${esc(e.code)}"></div><div class="f"><label>الاسم الكامل *</label><input id="e_name" value="${esc(e.name)}"></div></div>
+  <div class="row" style="margin-top:8px"><div class="f"><label>القسم</label><input id="e_dep" list="deps" value="${esc(e.department)}"><datalist id="deps">${DEPTS.map(d=>`<option value="${d}">`).join('')}</datalist></div><div class="f"><label>العنوان الوظيفي</label><input id="e_job" value="${esc(e.jobTitle)}"></div><div class="f"><label>الهاتف</label><input id="e_phone" dir="ltr" value="${esc(e.phone)}"></div></div>
+  <div class="row" style="margin-top:8px"><div class="f"><label>${id?'رمز سري جديد (اتركه فارغاً لعدم التغيير)':'الرمز السري *'}</label><input id="e_pin" inputmode="numeric" placeholder="4 أرقام أو أكثر"></div>
+  <div class="f"><label>الحالة</label><select id="e_act"><option value="1" ${e.active?'selected':''}>فعّال</option><option value="0" ${!e.active?'selected':''}>معطّل</option></select></div></div>
+  <div class="row" style="margin-top:14px"><button class="btn lime" onclick="saveEmp('${id||''}')">حفظ</button><button class="btn ghost" onclick="closeDlg()">إلغاء</button></div>`)};
+window.saveEmp=async id=>{try{await api('/api/admin/employees',{method:'POST',body:JSON.stringify({id:id||undefined,code:$('#e_code').value,name:$('#e_name').value,department:$('#e_dep').value,jobTitle:$('#e_job').value,phone:$('#e_phone').value,pin:$('#e_pin').value,active:$('#e_act').value==='1'})});closeDlg();await load();render();toast('تم الحفظ')}catch(e){toast(e.message)}};
+
+/* المخازن والمعدات */
+V.wh=()=>head('المخازن والمعدات')+`<div class="card"><h2>المخازن</h2><button class="btn lime noprint" onclick="whForm()">+ مخزن</button>
+<div class="tw" style="margin-top:10px"><table><tr><th>المخزن</th><th>الإحداثيات</th><th>النطاق</th><th></th></tr>${D.warehouses.filter(w=>w.active!==false).map(w=>`<tr><td><b>${esc(w.name)}</b></td><td dir="ltr" style="text-align:right">${w.lat!=null?w.lat+', '+w.lng:'<span class="pill warn">غير محدد</span>'}</td><td>${w.radiusM} م</td><td><button class="btn sm ghost" onclick="whForm('${w.id}')">تعديل</button></td></tr>`).join('')}</table></div>
+<p class="mut">حدّد إحداثيات المخزن (من خرائط Google: ضغطة مطوّلة على الموقع ثم نسخ الرقمين) ليتحقق النظام من أن الموظف كان فعلاً داخل المخزن عند المسح.</p></div>
+<div class="card"><h2>قائمة المعدات</h2><div class="row noprint"><div class="f"><label>اسم المعدّة</label><input id="q_name"></div><div class="f" style="max-width:160px"><label>الوحدة</label><input id="q_unit" value="وحدة"></div><button class="btn lime" onclick="addEq()">إضافة</button></div>
+<div class="chk" style="margin-top:10px">${D.equipment.filter(q=>q.active!==false).map(q=>`<label>${esc(q.name)} <span class="mut">(${esc(q.unit)})</span> <a href="#" onclick="delEq('${q.id}');return false" style="color:var(--err)">✕</a></label>`).join('')}</div></div>`;
+window.whForm=id=>{const w=id?D.warehouses.find(x=>x.id===id):{radiusM:300};
+  dlg(`<h3>${id?'تعديل مخزن':'مخزن جديد'}</h3><div class="row"><div class="f"><label>الاسم *</label><input id="w_name" value="${esc(w.name)}"></div></div>
+  <div class="row" style="margin-top:8px"><div class="f"><label>خط العرض</label><input id="w_lat" dir="ltr" value="${w.lat??''}"></div><div class="f"><label>خط الطول</label><input id="w_lng" dir="ltr" value="${w.lng??''}"></div><div class="f"><label>النطاق المسموح (م)</label><input id="w_rad" value="${w.radiusM}"></div></div>
+  <div class="row" style="margin-top:14px"><button class="btn lime" onclick="saveWh('${id||''}')">حفظ</button>${id?`<button class="btn red" onclick="delWh('${id}')">تعطيل</button>`:''}<button class="btn ghost" onclick="closeDlg()">إلغاء</button></div>`)};
+window.saveWh=async id=>{try{await api('/api/admin/warehouses',{method:'POST',body:JSON.stringify({id:id||undefined,name:$('#w_name').value,lat:$('#w_lat').value,lng:$('#w_lng').value,radiusM:$('#w_rad').value})});closeDlg();await load();render();toast('تم الحفظ')}catch(e){toast(e.message)}};
+window.delWh=async id=>{if(!confirm('تعطيل المخزن؟'))return;await api('/api/admin/warehouses/'+id,{method:'DELETE'});closeDlg();await load();render()};
+window.addEq=async()=>{try{await api('/api/admin/equipment',{method:'POST',body:JSON.stringify({name:$('#q_name').value,unit:$('#q_unit').value})});await load();render()}catch(e){toast(e.message)}};
+window.delEq=async id=>{await api('/api/admin/equipment/'+id,{method:'DELETE'});await load();render()};
+
+/* الباركود */
+V.codes=()=>{const ws=D.warehouses.filter(w=>w.active!==false);const ts=D.tasks.filter(t=>!['cancelled','closed','completed'].includes(t.status));
+  return head('طباعة الباركود')+`<div class="card noprint"><p class="mut" style="margin-top:0">كل باركود موقّع إلكترونياً من الخادم، ولا يمكن إنشاء باركود صالح خارج النظام. باركود المخزن يُلصق عند مدخل المخزن، وباركود الزبون يُسلّم مع أمر العمل أو يُلصق عند الزبون.</p><button class="btn" onclick="window.print()">طباعة هذه الصفحة</button></div>
+  <div class="card"><h2>باركود المخازن (الحضور · مغادرة المخزن · إرجاع المعدات)</h2><div class="codes">${ws.map(w=>codeCard(w.name,'امسح هذا الباركود عند الوصول وعند المغادرة وعند إرجاع المعدات',w.code)).join('')}</div></div>
+  <div class="card"><h2>باركود مواقع الزبائن (الوصول · إتمام العمل)</h2><div class="codes">${ts.map(t=>codeCard('موقع الزبون: '+t.customerName,t.title,t.siteCode)).join('')||'<p class="mut">لا توجد مهام مفتوحة.</p>'}</div></div>`};
+function codeCard(h,s,code){return `<div class="code"><div class="h">${esc(h)}</div><div class="s">${esc(s)}</div>${code128(code)}<div class="txt">${esc(code)}</div><div class="s" style="margin:6px 0 0">الطاقة الوطنية – تطبيق الموظف الميداني</div></div>`}
+window.printCodes=list=>{const w=window.open('','_blank');w.document.write(`<html dir="rtl"><head><meta charset="utf-8"><title>باركود</title><style>body{font-family:Tahoma,sans-serif}.code{border:2px solid #002816;border-radius:14px;padding:14px;text-align:center;width:420px;margin:20px auto}.h{font-weight:700;font-size:18px}.s{color:#555;font-size:13px;margin-bottom:8px}svg{width:100%;height:120px}.txt{font-family:monospace;font-size:11px;direction:ltr}</style></head><body>${list.map(x=>codeCard(...x)).join('')}<script>setTimeout(()=>print(),300)<\/script></body></html>`);w.document.close()};
+
+/* Code 128 (مجموعة B) */
+const C128=['212222','222122','222221','121223','121322','131222','122213','122312','132212','221213','221312','231212','112232','122132','122231','113222','123122','123221','223211','221132','221231','213212','223112','312131','311222','321122','321221','312212','322112','322211','212123','212321','232121','111323','131123','131321','112313','132113','132311','211313','231113','231311','112133','112331','132131','113123','113321','133121','313121','211331','231131','213113','213311','213131','311123','311321','331121','312113','312311','332111','314111','221411','431111','111224','111422','121124','121421','141122','141221','112214','112412','122114','122411','142112','142211','241211','221114','413111','241112','134111','111242','121142','121241','114212','124112','124211','411212','421112','421211','212141','214121','412121','111143','111341','131141','114113','114311','411113','411311','113141','114131','311141','411131','211412','211214','211232','2331112'];
+function code128(text){const vals=[104];for(const ch of text){const c=ch.charCodeAt(0);vals.push(c>=32&&c<=127?c-32:0)}let sum=104;for(let i=1;i<vals.length;i++)sum+=vals[i]*i;vals.push(sum%103);vals.push(106);
+  let x=10,bars='';vals.forEach(v=>{const p=C128[v];for(let i=0;i<p.length;i++){const w=+p[i];if(i%2===0)bars+=`<rect x="${x}" y="0" width="${w}" height="60"/>`;x+=w}});
+  return `<svg viewBox="0 0 ${x+10} 60" preserveAspectRatio="none" shape-rendering="crispEdges"><rect width="${x+10}" height="60" fill="#fff"/><g fill="#000">${bars}</g></svg>`}
+
+/* الإعدادات */
+V.settings=()=>head('الإعدادات والربط مع منظومة ERP')+`<div class="card"><h2>عنوان الخادم للهواتف</h2><p>اكتب هذا العنوان في شاشة الدخول بتطبيق الموظف الميداني:</p><p style="font-size:20px;direction:ltr;text-align:right"><b>${location.origin}</b></p><p class="mut">إذا كان العنوان localhost استخدم بدلاً منه عنوان IP لجهاز الخادم في الشبكة (يظهر عند تشغيل الخادم). ليعمل التطبيق خارج شبكة الشركة يجب نشر المنفذ على الإنترنت (IP ثابت أو خدمة نفق).</p></div>
+<div class="card"><h2>مفتاح الربط مع منظومة ERP</h2><p class="mut">تستخدمه منظومة ALTAKA-ALWATANIYAH ERP لسحب سجلات الحضور والاستمارات والمعوقات، ولإرسال الموظفين والمهام آلياً. التفاصيل في ملف API.md.</p><p style="direction:ltr;text-align:right;font-family:monospace;background:#f6f9f5;padding:10px;border-radius:8px">X-Api-Key: ${esc(D.erpApiKey)}</p>
+<p class="mut" style="direction:ltr;text-align:right">GET ${location.origin}/api/erp/export?since=2026-01-01T00:00:00Z<br>POST ${location.origin}/api/erp/sync</p></div>
+<div class="card"><h2>تغيير كلمة مرور الإدارة</h2><div class="row"><div class="f"><label>كلمة المرور الجديدة</label><input id="np" type="password"></div><button class="btn lime" onclick="chPass()">حفظ</button></div></div>`;
+window.chPass=async()=>{try{await api('/api/admin/password',{method:'POST',body:JSON.stringify({pass:$('#np').value})});toast('تم تغيير كلمة المرور')}catch(e){toast(e.message)}};
+
+/* حوار */
+function dlg(h){closeDlg();const o=document.createElement('div');o.className='ov';o.innerHTML=`<div class="dlg">${h}</div>`;o.onclick=e=>{if(e.target===o)closeDlg()};document.body.appendChild(o)}
+function closeDlg(){document.querySelectorAll('.ov').forEach(o=>o.remove())}
+window.showImg=src=>{const o=document.createElement('div');o.className='ov';o.style.zIndex=70;o.innerHTML=`<img src="${src}" style="max-width:95vw;max-height:92vh;border-radius:12px">`;o.onclick=()=>o.remove();document.body.appendChild(o)};
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDlg()});
+
+if(T)boot().catch(()=>logout());
+</script>
+</body>
+</html>

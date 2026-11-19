@@ -1,0 +1,36 @@
+{
+  "name": "altaka-alwataniyah-field",
+  "productName": "ALTAKA-ALWATANIYAH Field",
+  "version": "1.0.0",
+  "description": "تطبيق الموظف الميداني – الطاقة الوطنية (نسخة ويندوز)",
+  "main": "main.js",
+  "author": "ALTAKA-ALWATANIYAH",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --publish never"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.altakaalwataniyah.field",
+    "productName": "ALTAKA-ALWATANIYAH Field",
+    "files": ["main.js", "app/**/*"],
+    "directories": { "output": "dist", "buildResources": "build" },
+    "win": {
+      "target": [ { "target": "nsis", "arch": ["x64"] }, { "target": "portable", "arch": ["x64"] } ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "الموظف الميداني",
+      "artifactName": "altaka-alwataniyah-field-setup.${ext}"
+    },
+    "portable": { "artifactName": "altaka-alwataniyah-field-portable.${ext}" }
+  }
+}
