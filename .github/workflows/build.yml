@@ -48,6 +48,7 @@ jobs:
           path: |
             desktop/dist/altaka-alwataniyah-field-setup.exe
             desktop/dist/altaka-alwataniyah-field-portable.exe
+            desktop/dist/altaka-alwataniyah-field-windows.zip
 
   macos:
     runs-on: macos-latest
@@ -110,5 +111,5 @@ jobs:
           gh release delete latest --yes --cleanup-tag || true
           gh release create latest out/* \
             --title "الموظف الميداني – الطاقة الوطنية – الإصدار 1.${{ github.run_number }}" \
-            --notes "أندرويد: altaka-alwataniyah-field.apk · ويندوز: altaka-alwataniyah-field-setup.exe (تثبيت) أو altaka-alwataniyah-field-portable.exe (بدون تثبيت) · ماك: altaka-alwataniyah-field-mac-arm64.dmg (M1/M2/M3/M4) أو altaka-alwataniyah-field-mac-x64.dmg (Intel) · الآيفون: افتح https://engsaifhayder-oss.github.io/altaka-alwataniyah-field/ في Safari ثم «إضافة إلى الشاشة الرئيسية» · خادم الربط مع ERP: altaka-alwataniyah-field-gateway.zip" \
+            --notes "أندرويد: altaka-alwataniyah-field.apk · ويندوز: altaka-alwataniyah-field-windows.zip (الأسهل: فك الضغط ثم شغّل ALTAKA-ALWATANIYAH Field.exe) أو altaka-alwataniyah-field-setup.exe (تثبيت) أو altaka-alwataniyah-field-portable.exe · ماك: altaka-alwataniyah-field-mac-arm64.dmg (M1/M2/M3/M4) أو altaka-alwataniyah-field-mac-x64.dmg (Intel) · الآيفون: افتح https://engsaifhayder-oss.github.io/altaka-alwataniyah-field/ في Safari ثم «إضافة إلى الشاشة الرئيسية» · خادم الربط مع ERP: altaka-alwataniyah-field-gateway.zip" \
             --latest

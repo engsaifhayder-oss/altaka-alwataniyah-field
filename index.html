@@ -226,6 +226,8 @@ return {decode,decodeRuns,scanLine};
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const NB=window.AndroidBridge||null;
+const IS_DESKTOP=/Electron/i.test(navigator.userAgent);
+const IS_IOS=/iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 const LS={get(k,d){try{const v=localStorage.getItem('nef_'+k);return v==null?d:JSON.parse(v)}catch(_){return d}},set(k,v){try{localStorage.setItem('nef_'+k,JSON.stringify(v))}catch(e){toast('مساحة التخزين ممتلئة')}},del(k){localStorage.removeItem('nef_'+k)}};
 const rid=p=>(p||'c')+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
 let cfg=LS.get('cfg',{});if(!cfg.deviceId){cfg.deviceId=rid('dev');LS.set('cfg',cfg)}
@@ -366,9 +368,9 @@ function recordVideo(o){return new Promise(async(resolve,reject)=>{CAM.resolve=r
 })}
 /** مسح الباركود */
 function scanCode(expected,title){return new Promise((resolve,reject)=>{
+  if(cfg.demo){dlg(`<h3>الوضع التجريبي</h3><p>في الاستخدام الفعلي يُمسح الباركود بالكاميرا. للتجربة اضغط «متابعة».</p><input id="dCode" dir="ltr" value="${esc(expected||'')}"><div class="row" style="margin-top:12px"><button class="btn pri" id="dY">متابعة</button><button class="btn sec" id="dN">إلغاء</button></div>`);$('#dY').onclick=()=>{const v=$('#dCode').value;closeDlg();v?resolve(v):reject(new Error('cancel'))};$('#dN').onclick=()=>{closeDlg();reject(new Error('cancel'))};return}
   if(NB&&NB.scan){window.__scanCb=(txt,err)=>{window.__scanCb=null;txt?resolve(String(txt)):reject(new Error(err||'cancel'))};try{NB.scan(title||'امسح الباركود');}catch(e){reject(e)}return}
-  if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&!(cfg.demo&&window.__noCam)){webScan(title).then(resolve,reject);return}
-  if(cfg.demo){const v=prompt('الوضع التجريبي – لا يتوفر ماسح في هذا المتصفح. الباركود:',expected||'');v?resolve(v):reject(new Error('cancel'));return}
+  if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){webScan(title).then(resolve,reject);return}
   reject(new Error('unsupported'))})}
 async function webScan(title){return new Promise(async(resolve,reject)=>{CAM.resolve=resolve;CAM.reject=reject;
   $('#cam').classList.remove('hidden');$('#scanBox').classList.remove('hidden');$('#camTitle').textContent=title||'امسح الباركود';$('#camStamp').textContent='وجّه الكاميرا نحو الباركود';$('#camShot').className='hidden';$('#camFlip').classList.add('hidden');$('#camSp').classList.remove('hidden');
@@ -395,16 +397,17 @@ function setBar(html){$('#barIn').innerHTML=html;$('#bar').classList.remove('hid
 
 /* ================= الدخول ================= */
 $('#lServer').value=cfg.server||(/^https?:$/.test(location.protocol)&&location.pathname.startsWith('/app')?location.origin:'');$('#lCode').value=(cfg.employee&&cfg.employee.code)||cfg.lastCode||'';
+function mixedMsg(s){return location.protocol==='https:'&&/^http:/i.test(s)?'هذه النسخة تعمل عبر رابط آمن (https)، لذلك يجب أن يكون عنوان الخادم أيضاً https://… (مثل رابط Cloudflare Tunnel). العنوان http:// يُحظر من المتصفح.':''}
 function lMsg(t,ok){const m=$('#lMsg');m.className=ok?'okbox':'warnbox';m.textContent=t}
 $('#lTest').onclick=async()=>{const s=normServer($('#lServer').value);if(!s)return lMsg('اكتب عنوان الخادم');lMsg('جارٍ الاختبار…',true);
-  try{const r=await fetchT(s+'/api/mobile/ping',{},8000);const j=await r.json();lMsg('الاتصال ناجح ✓ '+(j.company?j.company.ar:''),true)}catch(e){lMsg('تعذّر الوصول إلى الخادم. تأكد من العنوان ومن اتصال الهاتف بشبكة الشركة.')}};
+  try{const r=await fetchT(s+'/api/mobile/ping',{},8000);const j=await r.json();lMsg('الاتصال ناجح ✓ '+(j.company?j.company.ar:''),true)}catch(e){lMsg(mixedMsg(s)||'تعذّر الوصول إلى الخادم. تأكد من العنوان ومن اتصال الهاتف بشبكة الشركة.')}};
 $('#lBtn').onclick=async()=>{const s=normServer($('#lServer').value),code=$('#lCode').value.trim(),pin=$('#lPin').value;
   if(!s||!code||!pin)return lMsg('يرجى ملء جميع الحقول');const b=busy('جارٍ تسجيل الدخول…');
   try{const t0=Date.now();const r=await fetchT(s+'/api/mobile/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code,pin,deviceId:cfg.deviceId,device:deviceStr()})},15000);
     const j=await r.json().catch(()=>({}));closeDlg();if(!r.ok)return lMsg(j.message||'رقم الموظف أو الرمز السري غير صحيح');
     setClock(j.serverTime,t0,Date.now());cfg={...cfg,server:s,token:j.token,employee:j.employee,demo:false,lastCode:code};saveCfg();boot=j;LS.set('boot',boot);$('#lPin').value='';$('#demoBar').classList.add('hidden');
     show('sHome',false);renderHome();sync()}
-  catch(e){closeDlg();lMsg('تعذّر الاتصال بالخادم: '+(e.name==='AbortError'?'انتهت المهلة':e.message))}};
+  catch(e){closeDlg();lMsg(mixedMsg(s)||('تعذّر الاتصال بالخادم: '+(e.name==='AbortError'?'انتهت المهلة':'تأكد من العنوان ومن الاتصال بالشبكة')))}};
 $('#lDemo').onclick=()=>{$('#demoBar').classList.remove('hidden');cfg={...cfg,demo:true,token:null,employee:{id:'DEMO',code:'0000',name:'موظف تجريبي',department:'الإدارة الهندسية'}};saveCfg();boot=demoBoot();LS.set('boot',boot);clock=null;LS.del('clock');show('sHome',false);renderHome()};
 function demoBoot(){const s=[{k:'wh_in',t:'الحضور – الوصول إلى المخزن',code:'W'},{k:'wh_out',t:'استلام المعدات ومغادرة المخزن',code:'W'},{k:'site_in',t:'الوصول إلى موقع الزبون',code:'T'},{k:'site_done',t:'إتمام العمل عند الزبون',code:'T'},{k:'wh_return',t:'إرجاع المعدات إلى المخزن – الانصراف',code:'W'}];
   return {steps:s,company:{ar:'الطاقة الوطنية',en:'ALTAKA-ALWATANIYAH'},warehouses:[{id:'WH1',name:'المخزن الرئيسي – الحلة',code:'NWWH1-0000DE00',lat:null,lng:null,radiusM:300}],
@@ -474,6 +477,7 @@ window.openStep=(tid,k)=>{const t=taskById(tid);const s=(boot.steps||[]).find(x=
 function target(){const t=W.task;if(W.step.code==='T')return t.lat!=null?{lat:t.lat,lng:t.lng,r:t.radiusM||300,name:'موقع الزبون'}:null;
   const wh=(boot.warehouses||[]).find(w=>W.code?w.code===W.code:w.id===t.warehouseId)||(boot.warehouses||[])[0];return wh&&wh.lat!=null?{lat:wh.lat,lng:wh.lng,r:wh.radiusM||300,name:wh.name}:null}
 async function locate(){if(!W)return;W.gpsBusy=true;renderStep();const g=await getGps(15000);if(!W)return;W.gps=g;W.gpsBusy=false;renderStep()}
+function gpsOk(){return (W.gps&&W.gps.lat!=null)||(IS_DESKTOP&&W.gps&&!W.gpsBusy&&W.noGpsOk)}
 function renderStep(){if(!W)return;const s=W.step,t=W.task;const isW=s.code==='W';const tg=target();const g=W.gps;
   const d=g&&g.lat!=null&&tg?distM(g.lat,g.lng,tg.lat,tg.lng):null;
   let n=0;const N=()=>++n;
@@ -484,7 +488,7 @@ function renderStep(){if(!W)return;const s=W.step,t=W.task;const isW=s.code==='W
    <button class="btn ${W.code?'sec':'dk'} w" onclick="doScan()">📷 ${W.code?'إعادة المسح':'مسح الباركود'}</button></div></div>
   <div class="card"><h2><span class="n ${g&&g.lat!=null?'done':''}">${N()}</span>الموقع الجغرافي</h2><div class="body">
    ${W.gpsBusy?'<p class="mut">⏳ جارٍ تحديد موقعك بدقة…</p>':g&&g.lat!=null?`<div class="${d!=null&&d>tg.r?'warnbox':'okbox'}">📍 ${g.lat.toFixed(5)}, ${g.lng.toFixed(5)} – الدقة ±${g.accuracy} م${d!=null?`<br>المسافة عن ${esc(tg.name)}: ${d} م ${d>tg.r?'– أنت خارج النطاق المسموح، سيتم إبلاغ الإدارة':'✓ ضمن النطاق'}`:''}</div>`
-   :`<div class="warnbox">${g&&g.error==='denied'?'تم رفض إذن الموقع – فعّله من إعدادات الهاتف':'تعذّر تحديد الموقع. فعّل GPS وحاول مجدداً'}</div>`}
+   :`<div class="warnbox">${g&&g.error==='denied'?'تم رفض إذن الموقع – فعّله من إعدادات '+(IS_DESKTOP?'الجهاز (الخصوصية ← الموقع)':'الهاتف'):'تعذّر تحديد الموقع. '+(IS_DESKTOP?'فعّل «خدمات الموقع» في إعدادات الجهاز':'فعّل GPS')+' وحاول مجدداً'}</div>${IS_DESKTOP&&g&&!W.gpsBusy?`<label style="display:flex;gap:8px;align-items:center;font-weight:400;color:var(--ink)"><input type="checkbox" style="width:auto" ${W.noGpsOk?'checked':''} onchange="W.noGpsOk=this.checked;renderStep()"> المتابعة بدون موقع (سيُبلَّغ مدير النظام)</label>`:''}`}
    <button class="btn sec w" ${W.gpsBusy?'disabled':''} onclick="locate()">↻ تحديث الموقع</button></div></div>
   <div class="card"><h2><span class="n ${W.selfie?'done':''}">${N()}</span>صورة سيلفي من داخل التطبيق</h2><div class="body">
    ${W.selfie?`<img class="selfie" src="${W.selfie.url}">`:'<p class="hint">التقط صورة لوجهك بالكاميرا الأمامية. لا يمكن اختيار صورة من المعرض. تُختم الصورة بالاسم والوقت والموقع.</p>'}
@@ -492,7 +496,7 @@ function renderStep(){if(!W)return;const s=W.step,t=W.task;const isW=s.code==='W
   ${eqHtml?`<div class="card"><h2><span class="n">${N()}</span>${s.k==='wh_out'?'المعدات المستلمة من المخزن':'المعدات المُرجعة إلى المخزن'}</h2><div class="body">${eqHtml}</div></div>`:''}
   ${s.k==='site_done'?`<div class="card"><h2><span class="n done">${N()}</span>الاستمارة</h2><div class="body"><div class="okbox">✓ تم إرسال ${t.type==='inspection'?'استمارة الكشف':'معلومات التنفيذ'}</div></div></div>`:''}
   <div class="card"><h2><span class="n">${N()}</span>ملاحظة <small class="mut" style="font-weight:400">(اختياري)</small></h2><div class="body"><textarea id="wNote" placeholder="أي ملاحظة عن هذه الخطوة…" oninput="W.note=this.value">${esc(W.note)}</textarea></div></div>`;
-  const ready=W.code&&W.selfie&&g&&g.lat!=null&&(s.k!=='wh_out'||W.equipment.some(x=>x.name&&x.qty>0));
+  const ready=W.code&&W.selfie&&gpsOk()&&(s.k!=='wh_out'||W.equipment.some(x=>x.name&&x.qty>0));
   setBar(`<button class="btn pri" ${ready?'':'disabled'} onclick="submitStep()">✓ تسجيل الخطوة وإرسالها</button>`)}
 function codeName(c){const w=(boot.warehouses||[]).find(x=>x.code===c);if(w)return w.name;const t=tasks().find(x=>x.siteCode===c);if(t)return 'موقع الزبون '+t.customerName;return c}
 window.doScan=async()=>{const isW=W.step.code==='W';const exp=isW?((boot.warehouses||[]).find(w=>w.id===W.task.warehouseId)||(boot.warehouses||[])[0]||{}).code:W.task.siteCode;
@@ -510,7 +514,7 @@ function eqOutHtml(){return `<p class="mut" style="margin-top:0">سجّل كل �
   <button class="btn sec w" onclick="W.equipment.push({id:'',name:'',qty:1});renderStep()">+ إضافة معدّة</button>`}
 function eqRetHtml(){if(!W.equipment.length)return '<p class="mut">لا توجد معدات مسجّلة عند المغادرة.</p>';
   return `<p class="mut" style="margin-top:0">أدخل الكمية المُرجعة وحالة كل معدّة.</p><div class="eq r" style="font-size:12px;color:var(--mut)"><span>المعدّة (المستلم)</span><span>المُرجع</span><span>الحالة</span></div>${W.equipment.map((x,i)=>`<div class="eq r"><div>${esc(x.name)} <span class="mut">(${x.taken})</span></div><input type="number" min="0" inputmode="numeric" value="${x.qty}" oninput="W.equipment[${i}].qty=+this.value"><select onchange="W.equipment[${i}].cond=this.value">${['سليمة','تالفة','مفقودة','مستهلكة/رُكّبت'].map(c=>`<option ${x.cond===c?'selected':''}>${c}</option>`).join('')}</select></div>`).join('')}`}
-window.eqSet=(i,k,v)=>{const x=W.equipment[i];if(k==='id'){x.id=v;x.name=((boot.equipment||[]).find(q=>q.id===v)||{}).name||''}else x.qty=Number(v)||0;if(k==='id')renderStep();else{const ready=W.code&&W.selfie&&W.gps&&W.gps.lat!=null&&W.equipment.some(x=>x.name&&x.qty>0);$('#barIn button').disabled=!ready}};
+window.eqSet=(i,k,v)=>{const x=W.equipment[i];if(k==='id'){x.id=v;x.name=((boot.equipment||[]).find(q=>q.id===v)||{}).name||''}else x.qty=Number(v)||0;if(k==='id')renderStep();else{const ready=W.code&&W.selfie&&gpsOk()&&W.equipment.some(x=>x.name&&x.qty>0);$('#barIn button').disabled=!ready}};
 window.submitStep=async()=>{const s=W.step,t=W.task;const b=busy('جارٍ حفظ الخطوة…');
   try{const eq=W.equipment.filter(x=>x.name).map(x=>s.k==='wh_return'?{id:x.id,name:x.name,qty:x.qty,taken:x.taken,condition:x.cond,note:x.cond!=='سليمة'?x.cond:''}:{id:x.id,name:x.name,qty:x.qty});
     const name='selfie_'+s.k+'_'+Date.now()+'.jpg';

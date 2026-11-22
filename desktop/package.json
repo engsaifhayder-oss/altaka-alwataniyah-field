@@ -36,13 +36,21 @@
           ]
         },
         {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
           "target": "portable",
           "arch": [
             "x64"
           ]
         }
       ],
-      "icon": "build/icon.png"
+      "icon": "build/icon.png",
+      "artifactName": "altaka-alwataniyah-field-windows.${ext}",
+      "publisherName": "ALTAKA-ALWATANIYAH"
     },
     "nsis": {
       "oneClick": false,
@@ -78,6 +86,8 @@
     },
     "dmg": {
       "title": "ALTAKA-ALWATANIYAH Field"
-    }
+    },
+    "afterPack": "build/adhoc-sign.js",
+    "copyright": "ALTAKA-ALWATANIYAH"
   }
 }
