@@ -1,4 +1,4 @@
-name: Build Android + Windows + iOS (web)
+name: Build Android + Windows + macOS + iOS (web)
 
 on:
   push:
@@ -49,6 +49,25 @@ jobs:
             desktop/dist/altaka-alwataniyah-field-setup.exe
             desktop/dist/altaka-alwataniyah-field-portable.exe
 
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Copy web app
+        run: mkdir -p desktop/app && cp index.html icon-192.png icon-512.png desktop/app/
+      - name: Build macOS DMG (Apple Silicon + Intel)
+        working-directory: desktop
+        env: { CSC_IDENTITY_AUTO_DISCOVERY: 'false' }
+        run: |
+          npm install --no-audit --no-fund
+          npx electron-builder --mac --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: desktop/dist/altaka-alwataniyah-field-mac-*.dmg
+
   gateway:
     runs-on: ubuntu-latest
     steps:
@@ -77,7 +96,7 @@ jobs:
         uses: actions/deploy-pages@v4
 
   release:
-    needs: [ android, windows, gateway ]
+    needs: [ android, windows, macos, gateway ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -90,5 +109,5 @@ jobs:
           gh release delete latest --yes --cleanup-tag || true
           gh release create latest out/* \
             --title "الموظف الميداني – الطاقة الوطنية – الإصدار 1.${{ github.run_number }}" \
-            --notes "أندرويد: altaka-alwataniyah-field.apk · ويندوز: altaka-alwataniyah-field-setup.exe (تثبيت) أو altaka-alwataniyah-field-portable.exe (بدون تثبيت) · الآيفون: افتح رابط GitHub Pages في Safari ثم «إضافة إلى الشاشة الرئيسية» · خادم الربط مع ERP: altaka-alwataniyah-field-gateway.zip" \
+            --notes "أندرويد: altaka-alwataniyah-field.apk · ويندوز: altaka-alwataniyah-field-setup.exe (تثبيت) أو altaka-alwataniyah-field-portable.exe (بدون تثبيت) · ماك: altaka-alwataniyah-field-mac-arm64.dmg (M1/M2/M3/M4) أو altaka-alwataniyah-field-mac-x64.dmg (Intel) · الآيفون: افتح https://engsaifhayder-oss.github.io/altaka-alwataniyah-field/ في Safari ثم «إضافة إلى الشاشة الرئيسية» · خادم الربط مع ERP: altaka-alwataniyah-field-gateway.zip" \
             --latest

@@ -34,6 +34,7 @@
 |---|---|
 | **أندرويد** | [⬇️ altaka-alwataniyah-field.apk](../../releases/latest/download/altaka-alwataniyah-field.apk) – ماسح باركود أصلي (ZXing) + كشف الموقع الوهمي والوقت |
 | **ويندوز** | [⬇️ ملف التثبيت](../../releases/latest/download/altaka-alwataniyah-field-setup.exe) أو [⬇️ نسخة بدون تثبيت](../../releases/latest/download/altaka-alwataniyah-field-portable.exe) – يحتاج كاميرا ويب، والموقع من «خدمات الموقع» في ويندوز |
+| **ماك** | [⬇️ Apple Silicon (M1–M4)](../../releases/latest/download/altaka-alwataniyah-field-mac-arm64.dmg) أو [⬇️ Intel](../../releases/latest/download/altaka-alwataniyah-field-mac-x64.dmg) – أول تشغيل: زر الفأرة الأيمن على التطبيق ← فتح |
 | **آيفون (iOS)** | افتح في **Safari**: `https://<حساب GitHub>.github.io/<اسم المستودع>/` أو `https://<عنوان الخادم>/app` ← زر المشاركة ⬆️ ← **إضافة إلى الشاشة الرئيسية** |
 | **خادم الربط** | [⬇️ altaka-alwataniyah-field-gateway.zip](../../releases/latest/download/altaka-alwataniyah-field-gateway.zip) |
 
