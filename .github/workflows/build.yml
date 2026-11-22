@@ -105,6 +105,7 @@ jobs:
       - name: Publish release
         env: { GH_TOKEN: '${{ github.token }}' }
         run: |
+          rm -f out/artifact.tar
           ls -la out
           gh release delete latest --yes --cleanup-tag || true
           gh release create latest out/* \
