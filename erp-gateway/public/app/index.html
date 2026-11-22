@@ -21,6 +21,12 @@ header .bk{width:40px;height:40px;border-radius:12px;border:0;background:rgba(25
 header h1{font-size:17px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 header .sync{font-size:12px;background:rgba(255,255,255,.12);padding:5px 10px;border-radius:20px;white-space:nowrap}
 header .sync.off{background:#7a1d16}
+header .bell{position:relative;background:rgba(255,255,255,.12);border:0;color:#fff;border-radius:12px;width:40px;height:36px;font-size:18px;margin-inline-start:auto;margin-inline-end:8px;cursor:pointer}
+header .bell i{position:absolute;top:-4px;left:-4px;min-width:20px;height:20px;border-radius:10px;background:var(--lime);color:var(--dk);font:700 12px/20px system-ui;font-style:normal;padding:0 5px}
+.ntc{border-right:4px solid var(--line)}.ntc.new{border-right-color:var(--lime);background:#fbfff2}.ntc.high{border-right-color:var(--err)}
+.ntc .h{display:flex;justify-content:space-between;gap:8px;align-items:baseline}.ntc .h b{font-size:16px;color:var(--dk)}.ntc p{white-space:pre-wrap;margin:8px 0 4px;line-height:1.75}
+.nban{display:block;width:100%;text-align:right;border:0;border-radius:14px;background:#fff7e0;border:1px solid #f0d58a;padding:12px 14px;margin:0 0 12px;color:var(--ink);font:inherit;cursor:pointer}
+.nban b{color:#7a5200}
 header .sync.pend{background:var(--lime);color:var(--dk);font-weight:700}
 .logo{background:#fff;text-align:center;padding:10px;border-bottom:4px solid var(--lime)}
 .logo img{height:44px;max-width:100%}
@@ -132,6 +138,7 @@ textarea{min-height:90px;resize:vertical}
 <header><div class="in">
   <button class="bk hidden" id="backBtn" aria-label="رجوع">→</button>
   <h1 id="hTitle">الموظف الميداني</h1>
+  <button class="bell hidden" id="bellBtn" aria-label="الإشعارات" onclick="openNotices()">🔔<i id="bellN" class="hidden"></i></button>
   <span class="sync" id="syncChip">—</span>
 </div></header>
 <div id="demoBar" class="demo hidden">وضع تجريبي – البيانات لا تُرسل إلى النظام</div>
@@ -168,6 +175,7 @@ textarea{min-height:90px;resize:vertical}
 <section class="screen" id="sLog"></section>
 <!-- ===== الإعدادات ===== -->
 <section class="screen" id="sSet"></section>
+<section class="screen" id="sNotif"></section>
 </main>
 
 <div class="bar hidden" id="bar"><div class="in" id="barIn"></div></div>
@@ -276,8 +284,8 @@ async function apiJson(path,opt){opt=opt||{};const h=Object.assign({'Authorizati
   const r=await fetchT(cfg.server+path,Object.assign({},opt,{headers:h}),opt.ms||20000);const j=await r.json().catch(()=>({}));
   if(r.status===401&&cfg.token){sessionExpired();throw new Error('انتهت الجلسة')}
   if(!r.ok)throw new Error(j.message||('خطأ '+r.status));return j}
-async function refresh(silent){if(cfg.demo||!cfg.token)return false;try{const t0=Date.now();const j=await apiJson('/api/mobile/bootstrap');setClock(j.serverTime,t0,Date.now());boot=j;LS.set('boot',boot);return true}catch(e){if(!silent)toast('تعذّر تحديث المهام: '+e.message);return false}}
-function sessionExpired(){cfg.token=null;saveCfg();toast('انتهت الجلسة – سجّل الدخول مجدداً. البيانات المحفوظة لن تُفقد',4500);stack=[];show('sLogin',false)}
+async function refresh(silent){if(cfg.demo||!cfg.token)return false;try{const t0=Date.now();const j=await apiJson('/api/mobile/bootstrap');setClock(j.serverTime,t0,Date.now());boot=j;LS.set('boot',boot);if(j.notifications)LS.set('notices',j.notifications);updBell();return true}catch(e){if(!silent)toast('تعذّر تحديث المهام: '+e.message);return false}}
+function sessionExpired(){cfg.token=null;saveCfg();try{updBell()}catch(_){}toast('انتهت الجلسة – سجّل الدخول مجدداً. البيانات المحفوظة لن تُفقد',4500);stack=[];show('sLogin',false)}
 
 /* ================= صندوق الإرسال (يعمل بدون إنترنت) ================= */
 function logAll(){return LS.get('log',[])}
@@ -397,19 +405,56 @@ function toolOpen(){return !$('#tool').classList.contains('hidden')}
 function closeTool(){$('#tool').classList.add('hidden')}
 $('#toolBack').onclick=closeTool;
 
+/* ================= الإشعارات (من الإدارة الهندسية / الإدارة العليا) ================= */
+function notices(){return (boot&&boot.notifications)||LS.get('notices',[])}
+function unread(){return notices().filter(n=>!n.read)}
+let _sess='';function nativeSession(){try{if(NB&&NB.setSession){const k=(cfg.server||'')+'|'+(cfg.token||'');if(k!==_sess){_sess=k;NB.setSession(cfg.token?cfg.server||'':'',cfg.token||'')}}}catch(_){}}
+function updBell(){nativeSession();const b=$('#bellBtn'),i=$('#bellN');if(!b)return;const on=!!(cfg.employee&&!cfg.demo);b.classList.toggle('hidden',!on);const n=unread().length;i.textContent=n>99?'99+':n;i.classList.toggle('hidden',!n)}
+function noticeBanner(){const u=unread();if(!u.length)return '';const n=u[0];
+  return `<button class="nban" onclick="openNotices()"><b>🔔 ${u.length>1?u.length+' إشعارات جديدة':'إشعار جديد'}${n.priority==='high'?' · مهم':''}</b><div style="margin-top:4px">${esc(n.title||'')}</div><small class="mut">${esc(n.from||'')}${n.fromUnit?' – '+esc(n.fromUnit):''}</small></button>`}
+function nativeNotify(n){try{if(NB&&NB.notify){NB.notify(n.id||'',n.title||'إشعار جديد',(n.from?n.from+': ':'')+(n.body||''));return}}catch(_){}
+  try{if('Notification' in window&&Notification.permission==='granted')new Notification(n.title||'إشعار جديد',{body:n.body||'',icon:'icon-192.png',tag:n.id})}catch(_){}}
+let noticeBusy=false;
+async function pollNotices(){if(noticeBusy||cfg.demo||!cfg.token||!cfg.server)return;noticeBusy=true;
+  try{const j=await apiJson('/api/mobile/notifications');const old=new Set(notices().map(n=>n.id));const list=j.notifications||[];
+    if(boot){boot.notifications=list;LS.set('boot',boot)}LS.set('notices',list);
+    const fresh=list.filter(n=>!n.read&&!old.has(n.id));
+    fresh.slice(0,3).forEach(nativeNotify);
+    if(fresh.length){if(NB&&NB.vibrate)NB.vibrate();toast('🔔 '+(fresh.length>1?fresh.length+' إشعارات جديدة':fresh[0].title));if(cur()==='sHome')renderHome();if(cur()==='sNotif')renderNotices()}
+  }catch(_){}finally{noticeBusy=false;updBell()}}
+window.openNotices=()=>{show('sNotif');renderNotices();try{if('Notification' in window&&Notification.permission==='default')Notification.requestPermission()}catch(_){}};
+function renderNotices(){const L=notices();
+  $('#sNotif').innerHTML=(L.length?L.map(n=>`<div class="card ntc ${n.read?'':'new'} ${n.priority==='high'?'high':''}"><div class="body"><div class="h"><b>${esc(n.title||'إشعار')}</b><small class="mut">${esc(fmtAr(n.createdAt))}</small></div>
+    <p>${esc(n.body||'')}</p><small class="mut">من: ${esc(n.from||'الإدارة')}${n.fromUnit?' – '+esc(n.fromUnit):''}${n.priority==='high'?' · <b style="color:var(--err)">مهم</b>':''}</small></div></div>`).join('')
+    :'<div class="card"><div class="body mut" style="text-align:center">لا توجد إشعارات.</div></div>')+'<div class="foot">تصل الإشعارات من الإدارة الهندسية والإدارة العليا عبر التطبيق والبريد والواتساب</div>';
+  const ids=L.filter(n=>!n.read).map(n=>n.id);
+  if(ids.length&&!cfg.demo){apiJson('/api/mobile/notifications/read',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids})}).then(()=>{L.forEach(n=>n.read=true);if(boot){boot.notifications=L;LS.set('boot',boot)}LS.set('notices',L);updBell()}).catch(()=>{})}}
+setInterval(()=>{if(document.visibilityState!=='hidden')pollNotices()},60000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')pollNotices()});
+setTimeout(()=>{updBell();pollNotices();if(location.hash==='#notices'&&cfg.token)openNotices()},1500);
+
+/* تقرير من تطبيقَي الكشف والتنفيذ يُرسل إلى المنظومة: الكشف ← قسم التصميم، التنفيذ ← قسم الإشراف والتنفيذ */
+window.addEventListener('message',async e=>{const d=e.data;if(!d||d.type!=='ne-tool-report'||!d.blob)return;
+  if(cfg.demo){toast('الوضع التجريبي لا يرسل البيانات');return}
+  const info=d.info||{};const ins=d.kind==='inspection';const title=(ins?'تقرير كشف – ':'تقرير تنفيذ – ')+(info.customerName||'');
+  const g=await getGps(8000);
+  await queue('reports',Object.assign({taskId:null,kind:ins?'تقرير كشف':'تقرير تنفيذ',reportType:ins?'inspection':'execution',title,notes:'',gps:g,deviceTime:new Date().toISOString(),correctedTime:new Date(nowC()).toISOString()},info),
+    [{field:'file',name:d.name||(title+'.pdf'),blob:d.blob}],title,ins?'📋':'🛠️');
+  toast('✓ أُضيف التقرير للإرسال إلى '+(ins?'قسم التصميم':'قسم الإشراف والتنفيذ'))});
+
 /* ================= التنقل ================= */
 let stack=[];
 function cur(){const s=$('.screen.on');return s?s.id:null}
-const TITLES={sLogin:'الموظف الميداني',sHome:'الرئيسية',sTask:'تفاصيل المهمة',sStep:'تسجيل خطوة',sForm:'الاستمارة',sObs:'الإبلاغ عن معوّق',sReport:'رفع تقرير / استمارة',sLog:'سجل العمليات',sSet:'الإعدادات'};
+const TITLES={sLogin:'الموظف الميداني',sHome:'الرئيسية',sTask:'تفاصيل المهمة',sStep:'تسجيل خطوة',sForm:'الاستمارة',sObs:'الإبلاغ عن معوّق',sReport:'رفع تقرير / استمارة',sLog:'سجل العمليات',sSet:'الإعدادات',sNotif:'الإشعارات'};
 function show(id,push){if(push!==false){const c=cur();if(c&&c!==id&&c!=='sLogin')stack.push(c)}
   $$('.screen').forEach(s=>s.classList.toggle('on',s.id===id));$('#hTitle').textContent=TITLES[id]||'';$('#backBtn').classList.toggle('hidden',!stack.length||id==='sLogin'||id==='sHome');
-  if(id==='sHome'||id==='sLogin')stack=[];$('#bar').classList.add('hidden');window.scrollTo(0,0);updChip()}
+  if(id==='sHome'||id==='sLogin')stack=[];$('#bar').classList.add('hidden');window.scrollTo(0,0);updChip();try{updBell()}catch(_){}}
 async function goBack(){if(toolOpen()){closeTool();return true}if(!$('#cam').classList.contains('hidden')){closeCam();return true}if(dlgOpen){closeDlg();return true}
   if(cur()==='sStep'&&W&&(W.code||W.selfie)){if(!(await confirmDlg('مغادرة الخطوة؟','لم يتم تسجيل الخطوة بعد. هل تريد الخروج؟','خروج','بقاء')))return true}
   const p=stack.pop();if(!p)return false;show(p,false);rerender(p);return true}
 window.appBack=function(){if(toolOpen()||!$('#cam').classList.contains('hidden')||dlgOpen||stack.length){goBack();return true}return false};
 $('#backBtn').onclick=goBack;
-function rerender(id){({sHome:renderHome,sTask:()=>renderTask(curTaskId),sLog:renderLog,sSet:renderSet})[id]?.()}
+function rerender(id){({sHome:renderHome,sTask:()=>renderTask(curTaskId),sLog:renderLog,sSet:renderSet,sNotif:renderNotices})[id]?.()}
 function setBar(html){$('#barIn').innerHTML=html;$('#bar').classList.remove('hidden')}
 
 /* ================= الدخول ================= */
@@ -448,6 +493,7 @@ async function renderHome(){const e=cfg.employee||{};const n=await pendingCount(
   const isToday=a=>a&&new Date(a).toLocaleDateString('en-CA',{timeZone:TZ})===todayStr();const todayIn=localEv().some(x=>x.step==='wh_in'&&x.emp===e.code&&isToday(x.at))||ts.some(t=>(t.progress||[]).some(p=>p.step==='wh_in'&&p.employeeId===e.id&&isToday(p.at)));
   $('#sHome').innerHTML=`<div class="hello"><small>مرحباً</small><b>${esc(e.name)}</b><small>${esc(e.department||'')} · رقم ${esc(e.code)}</small>
   <div class="chips"><span class="chip ${todayIn?'lime':''}">${todayIn?'✓ مسجّل حضور اليوم':'لم يُسجّل الحضور اليوم'}</span><span class="chip">${open.length} مهام مفتوحة</span>${n?`<span class="chip lime">${n} بانتظار الإرسال</span>`:''}</div></div>
+  ${noticeBanner()}
   <div class="tiles2">
    <button class="tile big" onclick="openTool('survey')"><span class="i">📋</span><b>تطبيق الكشف</b><small>تقرير كشف موقعي PDF</small></button>
    <button class="tile big" onclick="openTool('execution')"><span class="i">🛠️</span><b>تطبيق التنفيذ</b><small>تقرير تنفيذ PDF</small></button>
@@ -676,7 +722,7 @@ async function renderSet(){const e=cfg.employee||{};const n=await pendingCount()
   <div class="foot">تطبيق الموظف الميداني – الإصدار 1.0<br>ALTAKA-ALWATANIYAH</div>`}
 window.logout=async()=>{const n=await pendingCount();if(!(await confirmDlg('تسجيل الخروج؟',n?`يوجد ${n} سجل لم يُرسل بعد. سيبقى محفوظاً على الهاتف ويُرسل عند دخولك مجدداً بنفس الحساب.`:'سيتم الخروج من الحساب.','خروج','إلغاء')))return;
   if(cfg.token&&!cfg.demo)fetchT(cfg.server+'/api/mobile/logout',{method:'POST',headers:{Authorization:'Bearer '+cfg.token}},5000).catch(()=>{});
-  cfg.token=null;cfg.demo=false;cfg.employee=null;saveCfg();$('#demoBar').classList.add('hidden');show('sLogin',false)};
+  cfg.token=null;cfg.demo=false;cfg.employee=null;saveCfg();try{updBell()}catch(_){}$('#demoBar').classList.add('hidden');show('sLogin',false)};
 
 /* ================= البدء ================= */
 (function start(){if(cfg.demo&&cfg.employee){$('#demoBar').classList.remove('hidden');boot=boot||demoBoot();show('sHome',false);renderHome();return}

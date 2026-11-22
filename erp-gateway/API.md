@@ -33,6 +33,26 @@ POST /api/erp/sync
 ```
 المهمة تُحدَّث إذا وُجد نفس `erpRef`. الرمز السري `pin` يُخزن مُشفّراً (scrypt).
 
+### الموظفون الميدانيون
+```
+GET /api/erp/employees
+```
+يرجع `code, name, department, jobTitle, phone, email, active, lastSeen` — تستعمله ERP لاختيار مستلمي الإشعارات ولإرسال البريد والواتساب.
+
+### الإشعارات (من الإدارة الهندسية / الإدارة العليا)
+```
+POST /api/erp/notify
+{ "erpId":"…", "title":"…", "body":"…", "priority":"normal|high", "audience":"all|list", "codes":["1001"], "from":"…", "fromUnit":"…" }
+```
+يظهر الإشعار في تطبيق كل موظف مستهدف (جرس + شاشة «الإشعارات» + إشعار في شريط الهاتف على أندرويد حتى والتطبيق مغلق — فحص كل 15 دقيقة).
+تأكيدات القراءة ترجع في `notifications[].reads` ضمن `/api/erp/export`.
+الهاتف: `GET /api/mobile/notifications` · `POST /api/mobile/notifications/read {ids:[…]}`.
+
+### ربط التقارير بمسار المشروع في ERP
+- المهام التي تدفعها ERP تحمل `erpRef` بصيغة `FP-2026-0001-S` (كشف) و `FP-2026-0001-E` (تنفيذ).
+- استمارة الكشف (`formType=inspection`) أو تقرير «تطبيق الكشف» (`reportType=inspection`) ← قسم التصميم.
+- استمارة التنفيذ (`formType=execution`) أو تقرير «تطبيق التنفيذ» (`reportType=execution`) ← قسم الإشراف والتنفيذ ثم الأرشيف.
+
 ## 2) سجل الخطوة (event)
 ```json
 {

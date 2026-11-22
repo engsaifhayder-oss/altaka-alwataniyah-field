@@ -189,10 +189,20 @@ public class MainActivity extends Activity {
             if (!has(p)) first.add(p);
         if (Build.VERSION.SDK_INT < 29 && !has(Manifest.permission.WRITE_EXTERNAL_STORAGE))
             first.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        if (Build.VERSION.SDK_INT >= 33 && !has("android.permission.POST_NOTIFICATIONS"))
+            first.add("android.permission.POST_NOTIFICATIONS");
         if (!first.isEmpty()) requestPermissions(first.toArray(new String[0]), REQ_START_PERM);
+        Notices.schedule(this);
 
         if (savedInstanceState != null) web.restoreState(savedInstanceState);
-        else web.loadUrl(START_URL);
+        else web.loadUrl(START_URL + (getIntent() != null && getIntent().getBooleanExtra("openNotices", false) ? "#notices" : ""));
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        if (intent != null && intent.getBooleanExtra("openNotices", false) && web != null)
+            web.evaluateJavascript("window.openNotices&&window.openNotices()", null);
     }
 
     private boolean has(String perm) {
@@ -327,6 +337,18 @@ public class MainActivity extends Activity {
         }
 
         /** وقت منذ تشغيل الجهاز بالمللي ثانية – لا يتغير بتغيير ساعة الهاتف */
+        /** إشعار في شريط الهاتف (مرة واحدة لكل إشعار) */
+        @JavascriptInterface
+        public void notify(String id, String title, String body) {
+            Notices.show(MainActivity.this, id, title, body);
+        }
+
+        /** يحفظ عنوان الخادم والجلسة ليفحص الهاتف الإشعارات والتطبيق مغلق */
+        @JavascriptInterface
+        public void setSession(String server, String token) {
+            Notices.setSession(MainActivity.this, server, token);
+        }
+
         @JavascriptInterface
         public String elapsed() {
             return String.valueOf(SystemClock.elapsedRealtime());

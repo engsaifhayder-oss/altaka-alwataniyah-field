@@ -567,12 +567,15 @@ $('#btnPdf').onclick=async()=>{
     const canShare=NB_PDF||!!(navigator.canShare&&navigator.canShare({files:[new File([blob],name,{type:'application/pdf'})]}));
     modal(`<div class="ok">✓</div><h3>تم حفظ التقرير</h3><p>تم حفظ الملف في مجلد التنزيلات (Downloads) على جهازك:<br><b style="font-size:13px">${esc(name)}</b><br><span style="font-size:13px;color:#6B7A70">${pages.length} صفحة · ${(blob.size/1048576).toFixed(1)} MB</span></p>
       <div class="acts">
+        ${window.parent!==window?'<button class="btn lime" id="mSend">📤 إرسال التقرير إلى المنظومة (قسم التصميم)</button>':''}
         ${canShare?'<button class="btn lime" id="mShare">مشاركة التقرير (واتساب / بريد…)</button>':''}
         <button class="btn ghost" id="mOpen">فتح التقرير</button>
         <button class="btn ghost" id="mAgain">تنزيل مرة أخرى</button>
         <button class="btn pri" id="mClose">إغلاق</button>
       </div>`);
     $('#mClose').onclick=closeModal; $('#mAgain').onclick=download;
+    if($('#mSend'))$('#mSend').onclick=()=>{try{window.parent.postMessage({type:'ne-tool-report',kind:'inspection',name:lastPdf.name,blob:lastPdf.blob,
+      info:{customerName:S.v.customer||'',customerPhone:S.v.phone||'',address:S.v.address||'',date:S.v.date||'',capacity:S.v.sysType||''}},'*');$('#mSend').disabled=true;$('#mSend').textContent='✓ أُضيف إلى قائمة الإرسال'}catch(_){}};
     if(NB_PDF)$('#mOpen').style.display='none';$('#mOpen').onclick=()=>{const u=URL.createObjectURL(lastPdf.blob);const a=document.createElement('a');a.href=u;a.target='_blank';a.rel='noopener';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000)};
     if(canShare)$('#mShare').onclick=async()=>{if(NB_PDF){nativePdf('share');return}try{await navigator.share({files:[new File([lastPdf.blob],lastPdf.name,{type:'application/pdf'})],title:lastPdf.name})}catch(_){}};
   }catch(err){

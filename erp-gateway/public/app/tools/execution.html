@@ -394,8 +394,10 @@ $("pdfBtn").onclick=async()=>{
     lastPdf=await makeReport();
     const kb=Math.round(lastPdf.blob.size/1024);
     dialog(`<h3>التقرير جاهز ✓</h3><p>${lastPdf.name}<br>الحجم: ${kb>1024?(kb/1024).toFixed(1)+" ميغابايت":kb+" كيلوبايت"}</p>
-      <div class="row"><button class="btn pri" id="svBtn">💾 حفظ في الجهاز</button>${(NATIVE||webShareOk())?'<button class="btn sec" id="shBtn">📤 مشاركة / حفظ في الملفات</button>':''}<button class="btn sec" onclick="closeDlg()">إغلاق</button></div>`);
-    $("svBtn").onclick=savePdf;if($("shBtn"))$("shBtn").onclick=()=>NATIVE?nativeDo("share"):webShare();
+      ${window.parent!==window?'<div class="row"><button class="btn pri" id="erpBtn">📤 إرسال التقرير إلى المنظومة (قسم الإشراف والتنفيذ)</button></div>':''}<div class="row"><button class="btn pri" id="svBtn">💾 حفظ في الجهاز</button>${(NATIVE||webShareOk())?'<button class="btn sec" id="shBtn">📤 مشاركة / حفظ في الملفات</button>':''}<button class="btn sec" onclick="closeDlg()">إغلاق</button></div>`);
+    $("svBtn").onclick=savePdf;
+    if($("erpBtn"))$("erpBtn").onclick=()=>{const d=collect();try{window.parent.postMessage({type:'ne-tool-report',kind:'execution',name:lastPdf.name,blob:lastPdf.blob,
+      info:{customerName:d.cname||'',customerPhone:d.cphone||'',address:d.caddr||'',date:d.date||'',contractNo:d.cno||'',capacity:d.cap||''}},'*');$("erpBtn").disabled=true;$("erpBtn").textContent='✓ أُضيف إلى قائمة الإرسال'}catch(_){}};if($("shBtn"))$("shBtn").onclick=()=>NATIVE?nativeDo("share"):webShare();
   }catch(e){console.error(e);dialog(`<h3>حدث خطأ</h3><p>تعذّر إنشاء التقرير. حاول تقليل عدد الصور.</p><div class="row"><button class="btn pri" onclick="closeDlg()">حسناً</button></div>`);}
 };
 $("newBtn").onclick=()=>{

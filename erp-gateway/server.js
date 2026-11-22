@@ -65,13 +65,14 @@ const config = loadConfig();
 /* ---------------- قاعدة البيانات (ملف JSON) ---------------- */
 const EMPTY_DB = {
   employees: [], warehouses: [], equipment: [], tasks: [],
-  events: [], forms: [], obstacles: [], reports: [], sessions: [], adminSessions: []
+  events: [], forms: [], obstacles: [], reports: [], sessions: [], adminSessions: [], notifications: []
 };
 let db;
 let saveTimer = null;
 try { db = Object.assign({}, EMPTY_DB, JSON.parse(fs.readFileSync(DB_FILE, 'utf8'))); }
 catch (_) { db = JSON.parse(JSON.stringify(EMPTY_DB)); seed(); save(); }
 db.tasks.forEach(t => { if (!t.no) t.no = nextNo(db.tasks, 1001); });
+if (!Array.isArray(db.notifications)) db.notifications = [];
 
 function save() {
   clearTimeout(saveTimer);
@@ -199,7 +200,16 @@ function erpAuth(req, url) {
   const k = req.headers['x-api-key'] || url.searchParams.get('key');
   return k && k === config.erpApiKey;
 }
-function pubEmployee(e) { return { id: e.id, code: e.code, name: e.name, department: e.department, jobTitle: e.jobTitle, phone: e.phone }; }
+function pubEmployee(e) { return { id: e.id, code: e.code, name: e.name, department: e.department, jobTitle: e.jobTitle, phone: e.phone, email: e.email || '' }; }
+
+/* ---------------- الإشعارات (من الإدارة الهندسية / الإدارة العليا عبر ERP) ---------------- */
+function noticeFor(n, emp) { return n.active !== false && (n.audience === 'all' || (n.codes || []).includes(String(emp.code))); }
+function noticesFor(emp) {
+  return db.notifications.filter(n => noticeFor(n, emp)).slice(-60).reverse().map(n => ({
+    id: n.id, title: n.title, body: n.body, from: n.from || '', fromUnit: n.fromUnit || '', priority: n.priority || 'normal', createdAt: n.createdAt,
+    read: !!(n.reads || {})[emp.id]
+  }));
+}
 
 /* ---------------- منطق المهام والخطوات ---------------- */
 const STEPS = [
@@ -223,7 +233,8 @@ function bootstrapFor(emp) {
     steps: STEPS,
     warehouses: db.warehouses.filter(w => w.active !== false).map(w => ({ id: w.id, name: w.name, lat: w.lat, lng: w.lng, radiusM: w.radiusM || config.defaultRadiusM, code: makeCode('W', w.id) })),
     equipment: db.equipment.filter(x => x.active !== false),
-    tasks: db.tasks.filter(t => t.status !== 'cancelled' && t.status !== 'closed' && (t.assignees || []).includes(emp.id)).map(taskForMobile)
+    tasks: db.tasks.filter(t => t.status !== 'cancelled' && t.status !== 'closed' && (t.assignees || []).includes(emp.id)).map(taskForMobile),
+    notifications: noticesFor(emp)
   };
 }
 
@@ -387,6 +398,20 @@ route('POST', '/api/mobile/obstacles', mobileUpload('obstacles', 'obstacles', re
 }));
 route('POST', '/api/mobile/reports', mobileUpload('reports', 'reports'));
 
+// الإشعارات: جلب خفيف (كل دقيقة من التطبيق) وتأكيد القراءة
+route('GET', '/api/mobile/notifications', (req, res) => {
+  const a = mobileAuth(req); if (!a) return send(res, 401, { error: 'unauthorized' });
+  send(res, 200, { serverTime: nowIso(), notifications: noticesFor(a.employee) });
+});
+route('POST', '/api/mobile/notifications/read', async (req, res) => {
+  const a = mobileAuth(req); if (!a) return send(res, 401, { error: 'unauthorized' });
+  const b = await readJson(req); const ids = Array.isArray(b.ids) ? b.ids : [];
+  let n = 0;
+  db.notifications.forEach(x => { if (ids.includes(x.id) && noticeFor(x, a.employee)) { x.reads = x.reads || {}; if (!x.reads[a.employee.id]) { x.reads[a.employee.id] = nowIso(); x.updatedAt = nowIso(); n++; } } });
+  if (n) save();
+  send(res, 200, { ok: true, marked: n });
+});
+
 route('GET', '/api/mobile/history', (req, res) => {
   const a = mobileAuth(req); if (!a) return send(res, 401, { error: 'unauthorized' });
   const mine = k => db[k].filter(x => x.employeeId === a.employee.id).map(x => ({ id: x.id, clientId: x.clientId, step: x.step, taskId: x.taskId, at: x.deviceTime || x.createdAt, flags: x.flags, title: x.title }));
@@ -450,7 +475,7 @@ crud('employees', 'E', (it, b, isNew) => {
   if (!b.code || !b.name) return 'رقم الموظف والاسم مطلوبان';
   if (db.employees.some(e => e.code === String(b.code) && e.id !== it.id)) return 'رقم الموظف مستخدم مسبقاً';
   if (isNew && !b.pin) return 'الرمز السري مطلوب للموظف الجديد';
-  Object.assign(it, { code: String(b.code).trim(), name: b.name.trim(), department: b.department || '', jobTitle: b.jobTitle || '', phone: b.phone || '', active: b.active !== false });
+  Object.assign(it, { code: String(b.code).trim(), name: b.name.trim(), department: b.department || '', jobTitle: b.jobTitle || '', phone: b.phone || '', email: String(b.email || '').trim(), active: b.active !== false });
   if (b.pin) { if (String(b.pin).length < 4) return 'الرمز السري 4 أرقام على الأقل'; it.pinHash = hashPin(b.pin); db.sessions = db.sessions.filter(s => s.employeeId !== it.id); }
 });
 crud('warehouses', 'WH', (it, b) => {
@@ -494,7 +519,27 @@ route('GET', '/api/erp/export', (req, res, url) => {
   if (!erpAuth(req, url)) return send(res, 401, { error: 'unauthorized' });
   const since = url.searchParams.get('since') || '';
   const f = arr => arr.filter(x => !since || (x.receivedAt || x.updatedAt || '') > since);
-  send(res, 200, { serverTime: nowIso(), events: f(db.events), forms: f(db.forms), obstacles: f(db.obstacles), reports: f(db.reports), tasks: db.tasks.filter(t => !since || (t.updatedAt || '') > since) });
+  send(res, 200, { serverTime: nowIso(), events: f(db.events), forms: f(db.forms), obstacles: f(db.obstacles), reports: f(db.reports), tasks: db.tasks.filter(t => !since || (t.updatedAt || '') > since),
+    notifications: db.notifications.filter(n => !since || (n.updatedAt || n.createdAt || '') > since).map(n => ({ id: n.id, erpId: n.erpId, reads: n.reads || {} })) });
+});
+// الموظفون الميدانيون (لاختيار المستلمين في ERP: الاسم، الهاتف، البريد)
+route('GET', '/api/erp/employees', (req, res, url) => {
+  if (!erpAuth(req, url)) return send(res, 401, { error: 'unauthorized' });
+  send(res, 200, { employees: db.employees.map(e => Object.assign(pubEmployee(e), { active: e.active !== false, lastSeen: (db.sessions.filter(s => s.employeeId === e.id).map(s => s.lastSeen).sort().pop()) || null })) });
+});
+// إرسال إشعار إلى التطبيق: عام (audience=all) أو لموظفين محددين (codes)
+route('POST', '/api/erp/notify', async (req, res, url) => {
+  if (!erpAuth(req, url)) return send(res, 401, { error: 'unauthorized' });
+  const b = await readJson(req);
+  if (!String(b.title || '').trim() && !String(b.body || '').trim()) return send(res, 400, { error: 'empty', message: 'الإشعار فارغ' });
+  let n = b.erpId ? db.notifications.find(x => x.erpId === b.erpId) : null;
+  if (!n) { n = { id: uid('N'), createdAt: nowIso(), reads: {} }; db.notifications.push(n); }
+  Object.assign(n, { erpId: b.erpId || '', title: String(b.title || '').slice(0, 200), body: String(b.body || '').slice(0, 4000), from: b.from || '', fromUnit: b.fromUnit || '',
+    priority: b.priority === 'high' ? 'high' : 'normal', audience: b.audience === 'all' ? 'all' : 'list', codes: (b.codes || []).map(String), active: b.active !== false, updatedAt: nowIso() });
+  if (db.notifications.length > 2000) db.notifications = db.notifications.slice(-2000);
+  save();
+  const recipients = db.employees.filter(e => e.active !== false && noticeFor(n, e)).length;
+  send(res, 200, { ok: true, id: n.id, recipients });
 });
 route('POST', '/api/erp/sync', async (req, res, url) => {
   if (!erpAuth(req, url)) return send(res, 401, { error: 'unauthorized' });
@@ -502,7 +547,7 @@ route('POST', '/api/erp/sync', async (req, res, url) => {
   (b.employees || []).forEach(x => {
     let e = db.employees.find(y => y.code === String(x.code));
     if (!e) { e = { id: x.id || uid('E'), createdAt: nowIso() }; db.employees.push(e); }
-    Object.assign(e, { code: String(x.code), name: x.name, department: x.department || '', jobTitle: x.jobTitle || '', phone: x.phone || '', active: x.active !== false, updatedAt: nowIso() });
+    Object.assign(e, { code: String(x.code), name: x.name, department: x.department || '', jobTitle: x.jobTitle || '', phone: x.phone || '', email: x.email != null ? String(x.email) : (e.email || ''), active: x.active !== false, updatedAt: nowIso() });
     if (x.pin) e.pinHash = hashPin(x.pin);
     out.employees++;
   });
