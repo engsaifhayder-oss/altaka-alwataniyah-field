@@ -3,6 +3,7 @@ package com.altakaalwataniyah.field;
 import android.Manifest;
 import android.app.Activity;
 import android.content.ClipData;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -11,6 +12,9 @@ import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.MediaStore;
+import android.util.Base64;
 import android.os.SystemClock;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
@@ -27,6 +31,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import androidx.core.content.FileProvider;
 import androidx.webkit.WebViewAssetLoader;
 
 import com.google.zxing.integration.android.IntentIntegrator;
@@ -34,6 +39,9 @@ import com.google.zxing.integration.android.IntentResult;
 
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -49,9 +57,11 @@ public class MainActivity extends Activity {
     private static final int REQ_MEDIA_PERM = 102;
     private static final int REQ_GEO_PERM = 103;
     private static final int REQ_START_PERM = 104;
+    private static final String AUTHORITY = "com.altakaalwataniyah.field.fileprovider";
 
     private WebView web;
     private ValueCallback<Uri[]> fileCallback;
+    private Uri cameraUri;
     private PermissionRequest pendingMedia;
     private String geoOrigin;
     private GeolocationPermissions.Callback geoCallback;
@@ -129,23 +139,42 @@ public class MainActivity extends Activity {
                 }
             }
 
-            // اختيار الملفات (للتقارير والمستندات فقط – السيلفي والصور تُلتقط من الكاميرا المباشرة)
+            // اختيار الملفات: مستندات التقارير، وصور تطبيقَي الكشف والتنفيذ (كاميرا أو معرض)
             @Override
             public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
                 if (fileCallback != null) fileCallback.onReceiveValue(null);
                 fileCallback = callback;
+                cameraUri = null;
+                boolean images = false;
+                String[] acc = params.getAcceptTypes();
+                if (acc != null) for (String a : acc) if (a != null && a.startsWith("image")) images = true;
                 try {
+                    if (images && params.isCaptureEnabled()) {
+                        File dir = new File(getCacheDir(), "camera");
+                        dir.mkdirs();
+                        File f = new File(dir, "IMG_" + System.currentTimeMillis() + ".jpg");
+                        cameraUri = FileProvider.getUriForFile(MainActivity.this, AUTHORITY, f);
+                        Intent cam = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                        cam.putExtra(MediaStore.EXTRA_OUTPUT, cameraUri);
+                        cam.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        startActivityForResult(cam, REQ_FILE);
+                        return true;
+                    }
                     Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
                     intent.addCategory(Intent.CATEGORY_OPENABLE);
-                    intent.setType("*/*");
-                    intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{
-                            "application/pdf", "image/*", "application/msword",
-                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                            "application/vnd.ms-excel",
-                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "text/plain"});
+                    if (images) {
+                        intent.setType("image/*");
+                    } else {
+                        intent.setType("*/*");
+                        intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{
+                                "application/pdf", "image/*", "application/msword",
+                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                "application/vnd.ms-excel",
+                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "text/plain"});
+                    }
                     if (params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE)
                         intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-                    startActivityForResult(Intent.createChooser(intent, "اختيار ملف"), REQ_FILE);
+                    startActivityForResult(Intent.createChooser(intent, images ? "اختيار صور" : "اختيار ملف"), REQ_FILE);
                     return true;
                 } catch (Exception e) {
                     fileCallback = null;
@@ -158,6 +187,8 @@ public class MainActivity extends Activity {
         List<String> first = new ArrayList<>();
         for (String p : new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION})
             if (!has(p)) first.add(p);
+        if (Build.VERSION.SDK_INT < 29 && !has(Manifest.permission.WRITE_EXTERNAL_STORAGE))
+            first.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
         if (!first.isEmpty()) requestPermissions(first.toArray(new String[0]), REQ_START_PERM);
 
         if (savedInstanceState != null) web.restoreState(savedInstanceState);
@@ -195,7 +226,10 @@ public class MainActivity extends Activity {
         if (requestCode == REQ_FILE) {
             if (fileCallback == null) return;
             Uri[] result = null;
-            if (resultCode == RESULT_OK && data != null) {
+            if (cameraUri != null) {
+                if (resultCode == RESULT_OK) result = new Uri[]{cameraUri};
+                cameraUri = null;
+            } else if (resultCode == RESULT_OK && data != null) {
                 ClipData clip = data.getClipData();
                 if (clip != null && clip.getItemCount() > 0) {
                     result = new Uri[clip.getItemCount()];
@@ -243,6 +277,55 @@ public class MainActivity extends Activity {
             });
         }
 
+        /** حفظ تقرير PDF (تطبيقا الكشف والتنفيذ) في مجلد التنزيلات */
+        @JavascriptInterface
+        public String savePdf(String base64, String filename) {
+            try {
+                byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
+                String name = cleanName(filename);
+                if (Build.VERSION.SDK_INT >= 29) {
+                    ContentValues v = new ContentValues();
+                    v.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
+                    v.put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf");
+                    v.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/الطاقة الوطنية");
+                    Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
+                    if (uri == null) return "error: insert";
+                    try (OutputStream os = getContentResolver().openOutputStream(uri)) {
+                        if (os == null) return "error: stream";
+                        os.write(bytes);
+                    }
+                } else {
+                    File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "الطاقة الوطنية");
+                    dir.mkdirs();
+                    try (FileOutputStream fos = new FileOutputStream(new File(dir, name))) { fos.write(bytes); }
+                }
+                return "ok";
+            } catch (Exception e) {
+                return "error: " + e.getMessage();
+            }
+        }
+
+        /** مشاركة تقرير PDF (واتساب، بريد…) */
+        @JavascriptInterface
+        public String sharePdf(String base64, String filename) {
+            try {
+                byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
+                File dir = new File(getCacheDir(), "share");
+                dir.mkdirs();
+                File f = new File(dir, cleanName(filename));
+                try (FileOutputStream fos = new FileOutputStream(f)) { fos.write(bytes); }
+                final Uri uri = FileProvider.getUriForFile(MainActivity.this, AUTHORITY, f);
+                final Intent send = new Intent(Intent.ACTION_SEND);
+                send.setType("application/pdf");
+                send.putExtra(Intent.EXTRA_STREAM, uri);
+                send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                runOnUiThread(() -> startActivity(Intent.createChooser(send, "مشاركة التقرير")));
+                return "ok";
+            } catch (Exception e) {
+                return "error: " + e.getMessage();
+            }
+        }
+
         /** وقت منذ تشغيل الجهاز بالمللي ثانية – لا يتغير بتغيير ساعة الهاتف */
         @JavascriptInterface
         public String elapsed() {
@@ -278,6 +361,13 @@ public class MainActivity extends Activity {
             } catch (Exception ignored) { }
             return o.toString();
         }
+    }
+
+    private static String cleanName(String n) {
+        if (n == null || n.trim().isEmpty()) n = "تقرير.pdf";
+        n = n.replaceAll("[\\\\/:*?\"<>|]", "_");
+        if (!n.toLowerCase().endsWith(".pdf")) n += ".pdf";
+        return n;
     }
 
     @SuppressWarnings("deprecation")

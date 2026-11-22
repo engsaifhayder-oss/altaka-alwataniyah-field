@@ -118,6 +118,13 @@ textarea{min-height:90px;resize:vertical}
 .cambar .shot.vid{background:#d32f2f}
 .cambar .shot.stop{background:#fff;border-radius:18px;width:64px;height:64px;border-color:#d32f2f}
 .scanbox{position:absolute;top:50%;left:50%;width:90%;height:22%;transform:translate(-50%,-50%);border:3px solid var(--lime);border-radius:16px;box-shadow:0 0 0 2000px rgba(0,0,0,.35)}
+.tool{position:fixed;inset:0;z-index:45;background:#fff;display:flex;flex-direction:column}
+.toolbar{background:var(--dk);color:#fff;display:flex;align-items:center;gap:10px;padding:calc(8px + env(safe-area-inset-top)) 10px 8px}
+.toolbar button{font:inherit;font-size:15px;border:0;border-radius:11px;background:var(--lime);color:var(--dk);font-weight:700;padding:8px 14px}
+.toolbar b{flex:1;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tool iframe{flex:1;width:100%;border:0;background:#fff}
+.tiles2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.tile.big{background:linear-gradient(135deg,#fff 0%,#f1f8e4 100%);border-color:#cfe39a}
 @media(max-width:360px){.grid{grid-template-columns:1fr}.tiles{grid-template-columns:1fr 1fr}}
 </style>
 </head>
@@ -172,6 +179,7 @@ textarea{min-height:90px;resize:vertical}
   <div class="camstamp" id="camStamp"></div>
   <div class="cambar"><button id="camX">إلغاء</button><button id="camShot" class="shot" aria-label="التقاط"></button><button id="camFlip" class="hidden">تبديل</button><span id="camSp" style="min-width:80px"></span></div>
 </div>
+<div class="tool hidden" id="tool"><div class="toolbar"><button id="toolBack">→ رجوع</button><b id="toolTitle"></b></div><div id="toolHost" style="flex:1;display:flex"></div></div>
 <input type="file" id="fPick" multiple class="hidden" accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx,.txt">
 
 <script>
@@ -380,6 +388,15 @@ async function webScan(title){return new Promise(async(resolve,reject)=>{CAM.res
     if(det){const r=await det.detect(vid);if(r&&r[0])v=r[0].rawValue}if(!v)v=C128D.decode(vid);
     if(v){const res=CAM.resolve;CAM.resolve=CAM.reject=null;camStop();$('#camShot').className='shot';if(NB&&NB.vibrate)NB.vibrate();else if(navigator.vibrate)navigator.vibrate(80);res(v)}}catch(_){}busy=false},180)})}
 
+/* ================= تطبيقا الكشف والتنفيذ (خاصية إضافية) ================= */
+const TOOLS={survey:{t:'تطبيق الكشف – تقرير كشف موقعي',f:'tools/survey.html'},execution:{t:'تطبيق التنفيذ – تقرير تنفيذ',f:'tools/execution.html'}};
+window.openTool=k=>{const T=TOOLS[k];$$('#toolHost iframe').forEach(f=>f.style.display='none');let fr=$('#tf_'+k);
+  if(!fr){fr=document.createElement('iframe');fr.id='tf_'+k;fr.setAttribute('allow','camera; microphone; geolocation; web-share; clipboard-write; fullscreen');fr.src=T.f;$('#toolHost').appendChild(fr)}
+  fr.style.display='block';$('#toolTitle').textContent=T.t;$('#tool').classList.remove('hidden')};
+function toolOpen(){return !$('#tool').classList.contains('hidden')}
+function closeTool(){$('#tool').classList.add('hidden')}
+$('#toolBack').onclick=closeTool;
+
 /* ================= التنقل ================= */
 let stack=[];
 function cur(){const s=$('.screen.on');return s?s.id:null}
@@ -387,10 +404,10 @@ const TITLES={sLogin:'الموظف الميداني',sHome:'الرئيسية',sT
 function show(id,push){if(push!==false){const c=cur();if(c&&c!==id&&c!=='sLogin')stack.push(c)}
   $$('.screen').forEach(s=>s.classList.toggle('on',s.id===id));$('#hTitle').textContent=TITLES[id]||'';$('#backBtn').classList.toggle('hidden',!stack.length||id==='sLogin'||id==='sHome');
   if(id==='sHome'||id==='sLogin')stack=[];$('#bar').classList.add('hidden');window.scrollTo(0,0);updChip()}
-async function goBack(){if(!$('#cam').classList.contains('hidden')){closeCam();return true}if(dlgOpen){closeDlg();return true}
+async function goBack(){if(toolOpen()){closeTool();return true}if(!$('#cam').classList.contains('hidden')){closeCam();return true}if(dlgOpen){closeDlg();return true}
   if(cur()==='sStep'&&W&&(W.code||W.selfie)){if(!(await confirmDlg('مغادرة الخطوة؟','لم يتم تسجيل الخطوة بعد. هل تريد الخروج؟','خروج','بقاء')))return true}
   const p=stack.pop();if(!p)return false;show(p,false);rerender(p);return true}
-window.appBack=function(){if(!$('#cam').classList.contains('hidden')||dlgOpen||stack.length){goBack();return true}return false};
+window.appBack=function(){if(toolOpen()||!$('#cam').classList.contains('hidden')||dlgOpen||stack.length){goBack();return true}return false};
 $('#backBtn').onclick=goBack;
 function rerender(id){({sHome:renderHome,sTask:()=>renderTask(curTaskId),sLog:renderLog,sSet:renderSet})[id]?.()}
 function setBar(html){$('#barIn').innerHTML=html;$('#bar').classList.remove('hidden')}
@@ -431,6 +448,10 @@ async function renderHome(){const e=cfg.employee||{};const n=await pendingCount(
   const isToday=a=>a&&new Date(a).toLocaleDateString('en-CA',{timeZone:TZ})===todayStr();const todayIn=localEv().some(x=>x.step==='wh_in'&&x.emp===e.code&&isToday(x.at))||ts.some(t=>(t.progress||[]).some(p=>p.step==='wh_in'&&p.employeeId===e.id&&isToday(p.at)));
   $('#sHome').innerHTML=`<div class="hello"><small>مرحباً</small><b>${esc(e.name)}</b><small>${esc(e.department||'')} · رقم ${esc(e.code)}</small>
   <div class="chips"><span class="chip ${todayIn?'lime':''}">${todayIn?'✓ مسجّل حضور اليوم':'لم يُسجّل الحضور اليوم'}</span><span class="chip">${open.length} مهام مفتوحة</span>${n?`<span class="chip lime">${n} بانتظار الإرسال</span>`:''}</div></div>
+  <div class="tiles2">
+   <button class="tile big" onclick="openTool('survey')"><span class="i">📋</span><b>تطبيق الكشف</b><small>تقرير كشف موقعي PDF</small></button>
+   <button class="tile big" onclick="openTool('execution')"><span class="i">🛠️</span><b>تطبيق التنفيذ</b><small>تقرير تنفيذ PDF</small></button>
+  </div>
   <div class="tiles">
    <button class="tile" onclick="openObs()"><span class="i">⚠️</span><b>الإبلاغ عن معوّق</b><small>فيديو مباشر يوضح المشكلة</small></button>
    <button class="tile" onclick="openReport()"><span class="i">📤</span><b>رفع تقرير / استمارة</b><small>PDF · صور · مستندات</small></button>
@@ -462,7 +483,8 @@ function renderTask(id){const t=taskById(id);if(!t)return;const st=boot.steps||[
   <div class="card"><h2>${t.type==='inspection'?'استمارة الكشف الميداني':'معلومات التنفيذ المطلوبة'}</h2><div class="body">
    ${fs==='sent'?'<div class="okbox">✓ تم حفظ الاستمارة وإرسالها</div>':fs==='draft'?'<div class="hint">توجد مسودة محفوظة – أكملها ثم أرسلها</div>':''}
    ${!siteIn&&fs!=='sent'?'<p class="mut">تُفتح الاستمارة بعد تسجيل خطوة «الوصول إلى موقع الزبون».</p>':''}
-   <button class="btn ${fs==='sent'?'sec':'dk'} w" ${!siteIn||fs==='sent'?'disabled':''} onclick="openForm('${t.id}')">${fs==='draft'?'إكمال الاستمارة':'تعبئة الاستمارة'}</button></div></div>
+   <button class="btn ${fs==='sent'?'sec':'dk'} w" ${!siteIn||fs==='sent'?'disabled':''} onclick="openForm('${t.id}')">${fs==='draft'?'إكمال الاستمارة':'تعبئة الاستمارة'}</button>
+   <button class="btn sec w" style="margin-top:8px" onclick="openTool('${t.type==='inspection'?'survey':'execution'}')">📄 تقرير PDF عبر ${t.type==='inspection'?'تطبيق الكشف':'تطبيق التنفيذ'}</button></div></div>
   <div class="row"><button class="btn red" onclick="openObs('${t.id}')">⚠️ معوّق في هذه المهمة</button><button class="btn sec" onclick="openReport('${t.id}')">📤 رفع تقرير</button></div>`}
 
 /* ================= تسجيل خطوة ================= */

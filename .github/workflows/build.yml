@@ -20,7 +20,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '8.9' }
       - name: Copy web app into Android assets
-        run: mkdir -p app/src/main/assets && cp index.html app/src/main/assets/index.html
+        run: mkdir -p app/src/main/assets && cp index.html app/src/main/assets/index.html && cp -r tools app/src/main/assets/
       - name: Build signed APK
         run: gradle :app:assembleRelease --no-daemon --stacktrace
       - run: cp app/build/outputs/apk/release/app-release.apk altaka-alwataniyah-field.apk
@@ -35,7 +35,7 @@ jobs:
         with: { node-version: '20' }
       - name: Copy web app
         shell: bash
-        run: mkdir -p desktop/app && cp index.html icon-192.png icon-512.png desktop/app/
+        run: mkdir -p desktop/app && cp -r index.html icon-192.png icon-512.png tools desktop/app/
       - name: Build Windows installer + portable
         working-directory: desktop
         env: { CSC_IDENTITY_AUTO_DISCOVERY: 'false' }
@@ -57,7 +57,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
       - name: Copy web app
-        run: mkdir -p desktop/app && cp index.html icon-192.png icon-512.png desktop/app/
+        run: mkdir -p desktop/app && cp -r index.html icon-192.png icon-512.png tools desktop/app/
       - name: Build macOS DMG (Apple Silicon + Intel)
         working-directory: desktop
         env: { CSC_IDENTITY_AUTO_DISCOVERY: 'false' }
@@ -78,7 +78,7 @@ jobs:
       - name: Package ERP gateway (server + admin + web app)
         run: |
           mkdir -p erp-gateway/public/app
-          cp index.html manifest.json sw.js icon-180.png icon-192.png icon-512.png erp-gateway/public/app/
+          cp -r index.html manifest.json sw.js icon-180.png icon-192.png icon-512.png tools erp-gateway/public/app/
           rm -rf erp-gateway/data
           zip -r altaka-alwataniyah-field-gateway.zip erp-gateway
       - uses: actions/upload-artifact@v4
@@ -90,7 +90,7 @@ jobs:
     environment: { name: github-pages, url: '${{ steps.deploy.outputs.page_url }}' }
     steps:
       - uses: actions/checkout@v4
-      - run: mkdir -p _site && cp index.html manifest.json sw.js icon-*.png .nojekyll _site/
+      - run: mkdir -p _site && cp -r index.html manifest.json sw.js icon-*.png .nojekyll tools _site/
       - uses: actions/configure-pages@v5
         with: { enablement: true }
       - uses: actions/upload-pages-artifact@v3

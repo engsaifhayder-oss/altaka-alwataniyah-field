@@ -17,8 +17,12 @@ function createWindow() {
   Menu.setApplicationMenu(null);
   win.loadFile(path.join(__dirname, 'app', 'index.html'));
   // الروابط الخارجية (الخرائط، الهاتف) تُفتح في المتصفح
-  win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: 'deny' }; });
-  win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('file://')) { e.preventDefault(); shell.openExternal(url); } });
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    // فتح تقارير PDF (تطبيقا الكشف والتنفيذ) داخل نافذة التطبيق
+    if (url.startsWith('blob:')) return { action: 'allow', overrideBrowserWindowOptions: { width: 900, height: 1000, autoHideMenuBar: true } };
+    shell.openExternal(url); return { action: 'deny' };
+  });
+  win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('file://') && !url.startsWith('blob:')) { e.preventDefault(); shell.openExternal(url); } });
 }
 
 app.whenReady().then(async () => {
