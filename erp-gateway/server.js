@@ -330,10 +330,23 @@ function route(method, pattern, handler) {
 /* ===== واجهة الهاتف ===== */
 route('GET', '/api/mobile/ping', (req, res) => send(res, 200, { ok: true, serverTime: nowIso(), company: config.company, app: 'altaka-field-gateway', version: 1 }));
 
+/* ---------------- الوصول من الإنترنت (Cloudflare Tunnel) ---------------- */
+// الطلب القادم عبر النفق يحمل ترويسات Cloudflare؛ لوحة الإدارة وواجهة ERP تبقيان لشبكة الشركة فقط
+function viaTunnel(req) { return !!(req.headers['cf-connecting-ip'] || req.headers['cf-ray']); }
+function clientIp(req) { return String(req.headers['cf-connecting-ip'] || req.socket.remoteAddress || ''); }
+// حماية الرمز السري من التخمين: 5 محاولات خاطئة للموظف ← قفل 15 دقيقة، و30 محاولة من العنوان نفسه
+const fails = new Map();
+function tooMany(key, max) { const f = fails.get(key); return f && f.n >= max && Date.now() < f.until; }
+function failed(key) { const f = fails.get(key); const n = f && Date.now() < f.until ? f.n + 1 : 1; fails.set(key, { n, until: Date.now() + 15 * 60e3 }); }
+setInterval(() => { const now = Date.now(); for (const [k, f] of fails) if (now > f.until) fails.delete(k); }, 10 * 60e3).unref();
+
 route('POST', '/api/mobile/login', async (req, res) => {
   const b = await readJson(req);
-  const e = db.employees.find(x => String(x.code) === String(b.code || '').trim() && x.active !== false);
-  if (!e || !checkPin(b.pin || '', e.pinHash)) return send(res, 401, { error: 'invalid_credentials', message: 'رقم الموظف أو الرمز السري غير صحيح' });
+  const code = String(b.code || '').trim(), ip = 'ip:' + clientIp(req);
+  if (tooMany('emp:' + code, 5) || tooMany(ip, 30)) return send(res, 429, { error: 'locked', message: 'محاولات خاطئة كثيرة — حاول بعد 15 دقيقة أو راجع الإدارة' });
+  const e = db.employees.find(x => String(x.code) === code && x.active !== false);
+  if (!e || !checkPin(b.pin || '', e.pinHash)) { failed('emp:' + code); failed(ip); return send(res, 401, { error: 'invalid_credentials', message: 'رقم الموظف أو الرمز السري غير صحيح' }); }
+  fails.delete('emp:' + code);
   const token = crypto.randomBytes(24).toString('hex');
   db.sessions.push({ token, employeeId: e.id, deviceId: b.deviceId || null, device: b.device || null, createdAt: nowIso(), lastSeen: nowIso() });
   save();
@@ -421,12 +434,24 @@ route('GET', '/api/mobile/history', (req, res) => {
 /* ===== لوحة الإدارة ===== */
 route('POST', '/api/admin/login', async (req, res) => {
   const b = await readJson(req);
-  if (b.user !== config.adminUser || !checkPin(b.pass || '', config.adminPassHash)) return send(res, 401, { error: 'invalid' });
+  const ip = 'admin:' + clientIp(req);
+  if (tooMany(ip, 5)) return send(res, 429, { error: 'locked', message: 'محاولات خاطئة كثيرة — حاول بعد 15 دقيقة' });
+  if (b.user !== config.adminUser || !checkPin(b.pass || '', config.adminPassHash)) { failed(ip); return send(res, 401, { error: 'invalid' }); }
+  fails.delete(ip);
   const token = crypto.randomBytes(24).toString('hex');
   db.adminSessions = db.adminSessions.filter(s => Date.parse(s.expires) > Date.now());
   db.adminSessions.push({ token, expires: new Date(Date.now() + 12 * 3600e3).toISOString() });
   save();
   send(res, 200, { token, mustChangePass: !!config.mustChangeAdminPass });
+});
+// الرابط العام (Cloudflare Tunnel) الذي يكتبه الموظفون خارج الشركة
+route('POST', '/api/admin/public-url', async (req, res, url) => {
+  if (!adminAuth(req, url)) return send(res, 401, { error: 'unauthorized' });
+  const b = await readJson(req);
+  let u = String(b.publicUrl || '').trim().replace(/\/+$/, '');
+  if (u && !/^https:\/\/[a-z0-9.-]+$/i.test(u)) return send(res, 400, { error: 'bad', message: 'اكتب الرابط بصيغة https://field.altaka-alwatania.iq' });
+  config.publicUrl = u; fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+  send(res, 200, { ok: true, publicUrl: u });
 });
 route('POST', '/api/admin/password', async (req, res, url) => {
   if (!adminAuth(req, url)) return send(res, 401, { error: 'unauthorized' });
@@ -439,7 +464,7 @@ route('POST', '/api/admin/password', async (req, res, url) => {
 route('GET', '/api/admin/all', (req, res, url) => {
   if (!adminAuth(req, url)) return send(res, 401, { error: 'unauthorized' });
   send(res, 200, {
-    serverTime: nowIso(), steps: STEPS, company: config.company, erpApiKey: config.erpApiKey,
+    serverTime: nowIso(), steps: STEPS, company: config.company, erpApiKey: config.erpApiKey, publicUrl: config.publicUrl || '',
     employees: db.employees.map(e => Object.assign(pubEmployee(e), { active: e.active !== false, hasPin: !!e.pinHash })),
     warehouses: db.warehouses.map(w => Object.assign({}, w, { code: makeCode('W', w.id) })),
     equipment: db.equipment,
@@ -572,6 +597,12 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://x');
     const p = decodeURIComponent(url.pathname);
     if (req.method === 'OPTIONS') return send(res, 204, '');
+    if (viaTunnel(req) && !config.remoteAdmin) {
+      // من الإنترنت: التطبيق وواجهاته فقط
+      if (req.method === 'GET' && (p === '/' || p === '/admin' || p === '/admin/')) { res.writeHead(302, { Location: '/app/' }); return res.end(); }
+      if (p.startsWith('/api/admin') || p.startsWith('/api/erp') || p.startsWith('/media/'))
+        return send(res, 403, { error: 'local_only', message: 'لوحة الإدارة والربط مع ERP متاحان من شبكة الشركة فقط' });
+    }
     for (const r of routes) {
       if (r.method !== req.method) continue;
       const m = r.re.exec(p); if (!m) continue;
@@ -623,6 +654,7 @@ if (require.main === module) {
     ips.forEach(ip => console.log(' عنوان الخادم للهواتف:  http://' + ip + ':' + config.port));
     console.log(' نسخة الويب (آيفون / ويندوز):  /app');
     if (config.mustChangeAdminPass) console.log('\n ⚠ دخول الإدارة الأولي: admin / admin123 — غيّره فوراً من اللوحة');
+    if (config.publicUrl) console.log(' الرابط العام (من أي مكان):  ' + config.publicUrl);
     console.log(' مفتاح ربط ERP (X-Api-Key): ' + config.erpApiKey + '\n');
   });
 }
