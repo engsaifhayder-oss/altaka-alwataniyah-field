@@ -330,10 +330,16 @@ function route(method, pattern, handler) {
 /* ===== واجهة الهاتف ===== */
 route('GET', '/api/mobile/ping', (req, res) => send(res, 200, { ok: true, serverTime: nowIso(), company: config.company, app: 'altaka-field-gateway', version: 1 }));
 
-/* ---------------- الوصول من الإنترنت (Cloudflare Tunnel) ---------------- */
-// الطلب القادم عبر النفق يحمل ترويسات Cloudflare؛ لوحة الإدارة وواجهة ERP تبقيان لشبكة الشركة فقط
-function viaTunnel(req) { return !!(req.headers['cf-connecting-ip'] || req.headers['cf-ray']); }
-function clientIp(req) { return String(req.headers['cf-connecting-ip'] || req.socket.remoteAddress || ''); }
+/* ---------------- الوصول من الإنترنت (Tailscale Funnel أو Cloudflare Tunnel) ---------------- */
+// الطلب القادم من الإنترنت يمر عبر وسيط (Funnel / النفق) فيحمل ترويساته؛ لوحة الإدارة وواجهة ERP تبقيان لشبكة الشركة فقط
+function viaTunnel(req) {
+  const h = req.headers;
+  return !!(h['tailscale-funnel-request'] || h['cf-connecting-ip'] || h['cf-ray'] || h['x-forwarded-for']);
+}
+function clientIp(req) {
+  const h = req.headers, xff = String(h['x-forwarded-for'] || '').split(',')[0].trim();
+  return String(h['cf-connecting-ip'] || xff || req.socket.remoteAddress || '');
+}
 // حماية الرمز السري من التخمين: 5 محاولات خاطئة للموظف ← قفل 15 دقيقة، و30 محاولة من العنوان نفسه
 const fails = new Map();
 function tooMany(key, max) { const f = fails.get(key); return f && f.n >= max && Date.now() < f.until; }
@@ -444,7 +450,7 @@ route('POST', '/api/admin/login', async (req, res) => {
   save();
   send(res, 200, { token, mustChangePass: !!config.mustChangeAdminPass });
 });
-// الرابط العام (Cloudflare Tunnel) الذي يكتبه الموظفون خارج الشركة
+// الرابط العام (Tailscale Funnel أو Cloudflare Tunnel) الذي يكتبه الموظفون خارج الشركة
 route('POST', '/api/admin/public-url', async (req, res, url) => {
   if (!adminAuth(req, url)) return send(res, 401, { error: 'unauthorized' });
   const b = await readJson(req);
