@@ -12,20 +12,26 @@ if errorlevel 1 (
   echo.
   pause & exit /b 1
 )
-set "CFD=%ProgramFiles%\cloudflared"
-if not exist "%CFD%" mkdir "%CFD%"
-if not exist "%CFD%\cloudflared.exe" (
-  echo Downloading cloudflared ...
-  curl -fL --retry 3 -o "%CFD%\cloudflared.exe" https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe
-  if errorlevel 1 (
-    echo.
-    echo  Download failed. Download cloudflared-windows-amd64.exe manually from
-    echo  https://github.com/cloudflare/cloudflared/releases  and save it as:
-    echo  %CFD%\cloudflared.exe   then run this file again.
-    pause & exit /b 1
-  )
-)
-"%CFD%\cloudflared.exe" --version
+rem --- find or install cloudflared (official installer; a plain downloaded .exe may be blocked: "Access is denied") ---
+call :findcfd
+if defined CFX goto :have
+echo Installing cloudflared (official installer) ...
+winget install --id Cloudflare.cloudflared -e --silent --accept-package-agreements --accept-source-agreements >nul 2>&1
+call :findcfd
+if defined CFX goto :have
+echo  winget not available - downloading the MSI installer ...
+curl -fL --retry 3 -o "%TEMP%\cloudflared.msi" https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.msi
+if not errorlevel 1 msiexec /i "%TEMP%\cloudflared.msi" /qn /norestart
+call :findcfd
+if defined CFX goto :have
+echo.
+echo  cloudflared could not be installed or is blocked by the antivirus.
+echo  Download cloudflared-windows-amd64.msi from the Cloudflare dashboard link,
+echo  run it, then run this file again.
+pause & exit /b 1
+:have
+echo Using: !CFX!
+"!CFX!" --version
 echo.
 echo  Paste the tunnel token from the Cloudflare dashboard
 echo  (you may paste the whole command "cloudflared.exe service install eyJ...")
@@ -35,9 +41,9 @@ set /p "LINE=> "
 if "!LINE!"=="" (echo No token entered. & pause & exit /b 1)
 set "TOKEN="
 for %%A in (!LINE!) do set "TOKEN=%%A"
-"%CFD%\cloudflared.exe" service uninstall >nul 2>&1
+"!CFX!" service uninstall >nul 2>&1
 timeout /t 2 /nobreak >nul
-"%CFD%\cloudflared.exe" service install !TOKEN!
+"!CFX!" service install !TOKEN!
 timeout /t 5 /nobreak >nul
 sc query cloudflared | find "RUNNING" >nul
 if errorlevel 1 (
@@ -50,3 +56,14 @@ if errorlevel 1 (
 )
 echo.
 pause
+exit /b 0
+
+:findcfd
+set "CFX="
+for %%P in ("%ProgramFiles(x86)%\cloudflared\cloudflared.exe" "%ProgramFiles%\cloudflared\cloudflared.exe") do (
+  if not defined CFX if exist "%%~P" (
+    "%%~P" --version >nul 2>&1 && set "CFX=%%~P"
+  )
+)
+if not defined CFX for /f "delims=" %%P in ('where cloudflared 2^>nul') do if not defined CFX set "CFX=%%P"
+exit /b 0
