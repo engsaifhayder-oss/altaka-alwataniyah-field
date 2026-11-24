@@ -50,8 +50,12 @@ jobs:
             desktop/dist/altaka-alwataniyah-field-portable.exe
             desktop/dist/altaka-alwataniyah-field-windows.zip
 
+  # ماك: يُبنى بعد نشر الإصدار ويُضاف إليه (خوادم ماك في GitHub قد تتأخر بسبب الضغط)
   macos:
+    needs: [ release ]
     runs-on: macos-latest
+    timeout-minutes: 90
+    permissions: { contents: write }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -66,10 +70,9 @@ jobs:
           npx electron-builder --mac dmg --arm64 --publish never
           npx electron-builder --mac dmg --x64 --publish never
           for a in dist/*.dmg; do hdiutil verify "$a"; done
-      - uses: actions/upload-artifact@v4
-        with:
-          name: macos
-          path: desktop/dist/altaka-alwataniyah-field-mac-*.dmg
+      - name: Add the DMGs to the release
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: gh release upload latest desktop/dist/altaka-alwataniyah-field-mac-*.dmg --clobber -R ${{ github.repository }}
 
   gateway:
     runs-on: ubuntu-latest
@@ -106,7 +109,7 @@ jobs:
   # نسخة الآيفون: تطبيق ويب يُضاف إلى الشاشة الرئيسية من Safari
   ios-web:
     runs-on: ubuntu-latest
-    environment: { name: github-pages, url: '${{ steps.deploy.outputs.page_url }}' }
+    environment: { name: github-pages, url: '${{ steps.deploy1.outputs.page_url || steps.deploy.outputs.page_url }}' }
     steps:
       - uses: actions/checkout@v4
       - run: mkdir -p _site && cp -r index.html erp-bridge.js manifest.json sw.js icon-*.png .nojekyll tools _site/
@@ -114,11 +117,17 @@ jobs:
         with: { enablement: true }
       - uses: actions/upload-pages-artifact@v3
         with: { path: _site }
+      - id: deploy1
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+      - if: steps.deploy1.outcome == 'failure'
+        run: sleep 40
       - id: deploy
+        if: steps.deploy1.outcome == 'failure'
         uses: actions/deploy-pages@v4
 
   release:
-    needs: [ android, windows, macos, gateway ]
+    needs: [ android, windows, gateway ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -131,6 +140,6 @@ jobs:
           ls -la out
           gh release delete latest --yes --cleanup-tag || true
           gh release create latest out/* \
-            --title "التطبيق الموحد – الطاقة الوطنية – الإصدار 2.${{ github.run_number }}" \
-            --notes "التطبيق الموحد (ERP + الحضور + الكشف + التنفيذ + المعوقات + التقارير) · الصلاحيات حسب اختصاص الموظف · أندرويد: altaka-alwataniyah-field.apk · ويندوز: altaka-alwataniyah-field-setup.exe (تثبيت) أو altaka-alwataniyah-field-windows.zip (فك الضغط ثم شغّل ALTAKA-ALWATANIYAH.exe) · ماك: altaka-alwataniyah-field-mac-arm64.dmg (M1–M4) أو altaka-alwataniyah-field-mac-x64.dmg (Intel) · الآيفون: افتح https://app.altaka-field.com/app أو https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/ في Safari ثم «إضافة إلى الشاشة الرئيسية» · الخادم (ويندوز فقط، الحاسبة الأم): ALTAKA-ALWATANIYAH-Server-Windows.zip ← شغّل install-server-windows.bat كمسؤول · برنامج الحسابات (خادم ويندوز): ALTAKA-ALWATANIYAH-Accounting-Server-Windows.zip ← install-accounting-windows.bat كمسؤول، ثم https://acc.altaka-field.com" \
+            --title "منظومة ERP – الطاقة الوطنية – الإصدار 3.${{ github.run_number }}" \
+            --notes "برنامج واحد: منظومة ERP مع العمل الميداني (الحضور، الكشف، التنفيذ، المعوقات، التقارير) حسب صفة الموظف — الدخول باسم مستخدم ERP فقط · أندرويد: altaka-alwataniyah-field.apk · ويندوز: altaka-alwataniyah-field-setup.exe أو altaka-alwataniyah-field-portable.exe · ماك: altaka-alwataniyah-field-mac-arm64.dmg (M1–M4) أو altaka-alwataniyah-field-mac-x64.dmg (Intel) — تُضاف بعد اكتمال بنائها · الآيفون: افتح https://app.altaka-field.com/erp/ في Safari ثم «إضافة إلى الشاشة الرئيسية» · خادم الحاسبة الأم (ويندوز): ALTAKA-ALWATANIYAH-Server-Windows.zip ← install-server-windows.bat كمسؤول · برنامج الحسابات: ALTAKA-ALWATANIYAH-Accounting-Server-Windows.zip ← install-accounting-windows.bat كمسؤول، ثم https://acc.altaka-field.com" \
             --latest
