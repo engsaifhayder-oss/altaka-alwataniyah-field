@@ -1,0 +1,56 @@
+/* ALTAKA-ALWATANIYAH — إضافات واجهة منظومة ERP: العمل الميداني + واجهة الهاتف (تحقنها البوابة) */
+#ne-sso-veil{position:fixed;inset:0;z-index:2147483646;background:#f4f7f5;display:grid;place-items:center;font:600 16px system-ui,sans-serif;color:#194239}
+#ne-field{position:fixed;top:0;bottom:0;inset-inline-end:0;inset-inline-start:0;z-index:35;background:#f3f7f4;display:flex;flex-direction:column;box-shadow:0 0 30px rgba(13,38,32,.18)}
+#ne-field.ne-hide{display:none}
+#ne-field .ne-fbar{height:64px;flex-shrink:0;display:flex;align-items:center;gap:12px;padding:0 16px;background:rgba(255,255,255,.92);border-bottom:1px solid #e3ebe6;font-family:inherit}
+#ne-field .ne-fbar b{font-size:17px;color:#194239}
+#ne-field .ne-fbar button{height:40px;padding:0 14px;border-radius:12px;border:1px solid #dfe8e2;background:#fff;font:700 14px inherit;color:#1f4d40;cursor:pointer}
+#ne-field iframe{flex:1;width:100%;border:0;display:block;background:#f3f7f4}
+#ne-field-nav a.ne-on{background:#fff!important;color:#194239!important}
+#ne-menu,#ne-shade{display:none}
+.ne-ftile{position:relative}
+@media print{#ne-field,#ne-menu,#ne-shade{display:none!important}}
+
+/* ===== الهاتف والشاشات الصغيرة ===== */
+@media (max-width:900px){
+  /* القائمة الجانبية منزلقة */
+  #root > div > aside.no-print{position:fixed!important;top:0;bottom:0;inset-inline-start:0;z-index:50;width:272px!important;max-width:86vw;transform:translateX(110%);transition:transform .22s ease-out;box-shadow:0 0 40px rgba(0,0,0,.35)}
+  html.ne-nav-open #root > div > aside.no-print{transform:none}
+  #ne-shade{position:fixed;inset:0;z-index:45;background:rgba(10,30,24,.45)}
+  html.ne-nav-open #ne-shade{display:block}
+  #ne-menu{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;flex-shrink:0;border-radius:12px;border:1px solid #dfe8e2;background:#fff;font-size:22px;color:#194239;cursor:pointer}
+  /* الشريط العلوي */
+  #root header{padding-inline:10px!important;gap:8px!important;flex-wrap:wrap!important;height:auto!important;min-height:56px;row-gap:6px;padding-block:8px!important}
+  #root header > *{min-width:0}
+  #root > div > aside.no-print > button:last-child{display:none}
+  #root header .ne-back-btn span{display:none}
+  #root header button.max-w-md{max-width:none;min-width:0;flex:1 1 120px}
+  #root header button.max-w-md > *:not(svg){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* المحتوى */
+  #root main .page{padding:12px!important}
+  #root main .page h1{font-size:20px}
+  #root main table{display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  #root main .grid-cols-4,#root main .grid-cols-3{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  #root main .grid-cols-2{grid-template-columns:minmax(0,1fr)!important}
+  #root main .overflow-x-auto{max-width:100%}
+  #root main [class*="max-w-["]{max-width:100%!important}
+  .fixed.inset-0 aside{max-width:100%!important}
+  .ne-hr-frame{height:calc(100vh - 64px)!important}
+  /* الشاشة الرئيسية (بطاقات الأقسام) والدخول */
+  #root .grid.grid-cols-4{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important}
+  #root .grid > button.h-\[164px\]{height:128px!important;gap:10px!important}
+  #root .grid > button svg{width:34px;height:34px}
+  #root .px-10{padding-inline:16px!important}
+  #root .py-8{padding-block:16px!important}
+  #root > div > .h-16{flex-wrap:wrap;height:auto!important;min-height:56px;padding:6px 10px!important;gap:8px!important}
+  #root > div > .h-16 > span{padding-inline-start:8px!important}
+  #root > div > .h-16 > span:nth-child(3){display:none}
+  /* العمل الميداني يغطي الشاشة */
+  #ne-field{inset-inline-start:0!important}
+  #ne-field .ne-fbar{height:56px}
+}
+@media (max-width:420px){
+  #root .grid.grid-cols-4{gap:8px!important}
+  #root .grid > button.h-\[164px\]{height:112px!important}
+  #root .grid > button span.text-\[16px\]{font-size:14px!important}
+}

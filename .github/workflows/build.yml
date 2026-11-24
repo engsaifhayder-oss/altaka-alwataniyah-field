@@ -79,7 +79,7 @@ jobs:
         run: |
           node --check erp-gateway/server.js
           mkdir -p erp-gateway/public/app
-          cp -r index.html erp-bridge.js manifest.json sw.js icon-180.png icon-192.png icon-512.png tools erp-gateway/public/app/
+          cp -r index.html erp-bridge.js erp-mobile.css erp.webmanifest manifest.json sw.js icon-180.png icon-192.png icon-512.png tools erp-gateway/public/app/
           rm -rf erp-gateway/data
           cp "server-windows/دليل-الخادم-والتطبيق-الموحد.txt" erp-gateway/
           mkdir -p pkg/ALTAKA-ALWATANIYAH-Server-Windows

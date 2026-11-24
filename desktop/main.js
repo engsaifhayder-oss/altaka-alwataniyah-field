@@ -26,10 +26,10 @@ app.commandLine.appendSwitch('enable-features', 'WinrtGeolocationImplementation'
 
 function createWindow() {
   const win = new BrowserWindow({
-    width: 480, height: 900, minWidth: 380, minHeight: 600,
-    title: 'الطاقة الوطنية – التطبيق الموحد',
+    width: 1366, height: 860, minWidth: 380, minHeight: 560,
+    title: 'الطاقة الوطنية – منظومة ERP',
     icon: path.join(__dirname, 'build', 'icon.png'),
-    backgroundColor: '#002816',
+    backgroundColor: '#194239',
     autoHideMenuBar: true,
     webPreferences: { contextIsolation: true, nodeIntegration: false, spellcheck: false }
   });
