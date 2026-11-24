@@ -1,4 +1,4 @@
-name: Build Android + Windows + macOS + iOS (web)
+name: Build unified app (Android + Windows + macOS + iOS web) + Windows server
 
 on:
   push:
@@ -75,14 +75,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Package ERP gateway (server + admin + web app)
+      - name: Package Windows server (gateway + admin + web app + installer)
         run: |
+          node --check erp-gateway/server.js
           mkdir -p erp-gateway/public/app
           cp -r index.html manifest.json sw.js icon-180.png icon-192.png icon-512.png tools erp-gateway/public/app/
           rm -rf erp-gateway/data
+          cp "server-windows/دليل-الخادم-والتطبيق-الموحد.txt" erp-gateway/
+          mkdir -p pkg/ALTAKA-ALWATANIYAH-Server-Windows
+          cp -r erp-gateway pkg/ALTAKA-ALWATANIYAH-Server-Windows/gateway
+          cp server-windows/* pkg/ALTAKA-ALWATANIYAH-Server-Windows/
+          (cd pkg && zip -r ../ALTAKA-ALWATANIYAH-Server-Windows.zip ALTAKA-ALWATANIYAH-Server-Windows)
           zip -r altaka-alwataniyah-field-gateway.zip erp-gateway
       - uses: actions/upload-artifact@v4
-        with: { name: gateway, path: altaka-alwataniyah-field-gateway.zip }
+        with:
+          name: gateway
+          path: |
+            ALTAKA-ALWATANIYAH-Server-Windows.zip
+            altaka-alwataniyah-field-gateway.zip
 
   # نسخة الآيفون: تطبيق ويب يُضاف إلى الشاشة الرئيسية من Safari
   ios-web:
@@ -112,6 +122,6 @@ jobs:
           ls -la out
           gh release delete latest --yes --cleanup-tag || true
           gh release create latest out/* \
-            --title "الموظف الميداني – الطاقة الوطنية – الإصدار 1.${{ github.run_number }}" \
-            --notes "أندرويد: altaka-alwataniyah-field.apk · ويندوز: altaka-alwataniyah-field-windows.zip (الأسهل: فك الضغط ثم شغّل ALTAKA-ALWATANIYAH Field.exe) أو altaka-alwataniyah-field-setup.exe (تثبيت) أو altaka-alwataniyah-field-portable.exe · ماك: altaka-alwataniyah-field-mac-arm64.dmg (M1/M2/M3/M4) أو altaka-alwataniyah-field-mac-x64.dmg (Intel) · الآيفون: افتح https://engsaifhayder-oss.github.io/altaka-alwataniyah-field/ في Safari ثم «إضافة إلى الشاشة الرئيسية» · خادم الربط مع ERP: altaka-alwataniyah-field-gateway.zip" \
+            --title "التطبيق الموحد – الطاقة الوطنية – الإصدار 2.${{ github.run_number }}" \
+            --notes "التطبيق الموحد (ERP + الحضور + الكشف + التنفيذ + المعوقات + التقارير) · الصلاحيات حسب اختصاص الموظف · أندرويد: altaka-alwataniyah-field.apk · ويندوز: altaka-alwataniyah-field-setup.exe (تثبيت) أو altaka-alwataniyah-field-windows.zip (فك الضغط ثم شغّل ALTAKA-ALWATANIYAH.exe) · ماك: altaka-alwataniyah-field-mac-arm64.dmg (M1–M4) أو altaka-alwataniyah-field-mac-x64.dmg (Intel) · الآيفون: افتح https://app.altaka-field.com/app أو https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/ في Safari ثم «إضافة إلى الشاشة الرئيسية» · الخادم (ويندوز فقط، الحاسبة الأم): ALTAKA-ALWATANIYAH-Server-Windows.zip ← شغّل install-server-windows.bat كمسؤول" \
             --latest

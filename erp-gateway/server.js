@@ -42,6 +42,9 @@ function loadConfig() {
   if (c.defaultRadiusM == null) { c.defaultRadiusM = 300; changed = true; }
   if (!c.company) { c.company = { ar: 'الطاقة الوطنية للمقاولات والتجارة العامة والطاقة المتجددة', en: 'ALTAKA-ALWATANIYAH' }; changed = true; }
   if (!c.erpApiKey) { c.erpApiKey = crypto.randomBytes(18).toString('hex'); changed = true; }
+  // رابط منظومة ERP عبر Cloudflare (يفتحه التطبيق الموحد لموظفي الإدارات)
+  if (c.erpPublicUrl == null) { c.erpPublicUrl = 'https://erp.altaka-field.com'; changed = true; }
+  if (!c.publicUrl) { c.publicUrl = 'https://app.altaka-field.com'; changed = true; }
   if (changed) fs.writeFileSync(CONFIG_FILE, JSON.stringify(c, null, 2));
   return c;
 }
@@ -200,7 +203,48 @@ function erpAuth(req, url) {
   const k = req.headers['x-api-key'] || url.searchParams.get('key');
   return k && k === config.erpApiKey;
 }
-function pubEmployee(e) { return { id: e.id, code: e.code, name: e.name, department: e.department, jobTitle: e.jobTitle, phone: e.phone, email: e.email || '' }; }
+/* ---------------- الصلاحيات حسب الاختصاص ---------------- */
+// كل خاصية في التطبيق الموحد لها صلاحية، ويتحقق منها الخادم (لا الواجهة فقط)
+const PERMS = {
+  attendance: 'الحضور والمهام الميدانية (باركود + سيلفي)',
+  survey: 'تطبيق الكشف',
+  execution: 'تطبيق التنفيذ',
+  obstacles: 'الإبلاغ عن المعوقات (فيديو)',
+  reports: 'رفع التقارير والاستمارات',
+  erp: 'منظومة ERP (الإدارات)'
+};
+// الملفات الجاهزة: تُختار تلقائياً من الإدارة/القسم والعنوان الوظيفي، ويمكن تغييرها لكل موظف
+const PROFILES = {
+  management: { t: 'الإدارة العليا / مدير', perms: Object.keys(PERMS) },
+  supervisor: { t: 'الإشراف والتنفيذ', perms: ['attendance', 'survey', 'execution', 'obstacles', 'reports', 'erp'] },
+  inspector: { t: 'موظف كشف (التصميم)', perms: ['attendance', 'survey', 'obstacles', 'reports'] },
+  executor: { t: 'فريق التنفيذ الميداني', perms: ['attendance', 'execution', 'obstacles', 'reports'] },
+  engineer: { t: 'مهندس ميداني (كشف + تنفيذ)', perms: ['attendance', 'survey', 'execution', 'obstacles', 'reports'] },
+  office: { t: 'موظف إدارة / مكتب', perms: ['erp'] },
+  custom: { t: 'مخصّص', perms: [] }
+};
+function autoProfile(e) {
+  const d = String(e.department || ''), j = String(e.jobTitle || ''), x = d + ' ' + j;
+  if (/الإدارة العليا|المدير العام|المدير المفوض|المدير المفوّض/.test(x) || /^مدير|\sمدير/.test(' ' + j)) return 'management';
+  if (/الإشراف/.test(x)) return 'supervisor';
+  if (/التصميم|كشف|مسّاح|مساح/.test(x)) return 'inspector';
+  if (/التنفيذ|العمليات|المقاولات|الطاقة المتجددة|فني|كهربائي|نصّاب|نصاب|عامل|سائق/.test(x)) return 'executor';
+  if (/الهندسية|مهندس/.test(x)) return 'engineer';
+  return 'office';
+}
+function profileOf(e) { return PROFILES[e.profile] ? e.profile : autoProfile(e); }
+function permsOf(e) {
+  const pr = profileOf(e);
+  const list = pr === 'custom' ? (e.perms || []) : PROFILES[pr].perms;
+  return list.filter(k => PERMS[k]);
+}
+function can(e, k) { return permsOf(e).includes(k); }
+function cleanPerms(b, it) {
+  if (b.profile !== undefined) it.profile = PROFILES[b.profile] ? b.profile : '';
+  if (Array.isArray(b.perms)) { it.perms = b.perms.filter(k => PERMS[k]); if (!b.profile) it.profile = 'custom'; }
+  if (it.profile !== 'custom') delete it.perms;
+}
+function pubEmployee(e) { return { id: e.id, code: e.code, name: e.name, department: e.department, jobTitle: e.jobTitle, phone: e.phone, email: e.email || '', profile: profileOf(e), profileAuto: !PROFILES[e.profile], perms: permsOf(e) }; }
 
 /* ---------------- الإشعارات (من الإدارة الهندسية / الإدارة العليا عبر ERP) ---------------- */
 function noticeFor(n, emp) { return n.active !== false && (n.audience === 'all' || (n.codes || []).includes(String(emp.code))); }
@@ -233,7 +277,8 @@ function bootstrapFor(emp) {
     steps: STEPS,
     warehouses: db.warehouses.filter(w => w.active !== false).map(w => ({ id: w.id, name: w.name, lat: w.lat, lng: w.lng, radiusM: w.radiusM || config.defaultRadiusM, code: makeCode('W', w.id) })),
     equipment: db.equipment.filter(x => x.active !== false),
-    tasks: db.tasks.filter(t => t.status !== 'cancelled' && t.status !== 'closed' && (t.assignees || []).includes(emp.id)).map(taskForMobile),
+    tasks: can(emp, 'attendance') ? db.tasks.filter(t => t.status !== 'cancelled' && t.status !== 'closed' && (t.assignees || []).includes(emp.id)).map(taskForMobile) : [],
+    perms: permsOf(emp), permNames: PERMS, erpUrl: config.erpPublicUrl || '',
     notifications: noticesFor(emp)
   };
 }
@@ -328,7 +373,7 @@ function route(method, pattern, handler) {
 }
 
 /* ===== واجهة الهاتف ===== */
-route('GET', '/api/mobile/ping', (req, res) => send(res, 200, { ok: true, serverTime: nowIso(), company: config.company, app: 'altaka-field-gateway', version: 1 }));
+route('GET', '/api/mobile/ping', (req, res) => send(res, 200, { ok: true, serverTime: nowIso(), company: config.company, app: 'altaka-field-gateway', version: 2, erpUrl: config.erpPublicUrl || '' }));
 
 /* ---------------- الوصول من الإنترنت (Tailscale Funnel أو Cloudflare Tunnel) ---------------- */
 // الطلب القادم من الإنترنت يمر عبر وسيط (Funnel / النفق) فيحمل ترويساته؛ لوحة الإدارة وواجهة ERP تبقيان لشبكة الشركة فقط
@@ -371,12 +416,20 @@ route('POST', '/api/mobile/logout', (req, res) => {
 function mobileUpload(kind, sub, build) {
   return async (req, res) => {
     const a = mobileAuth(req); if (!a) return send(res, 401, { error: 'unauthorized' });
+    const NEED = { events: 'attendance', obstacles: 'obstacles' }[kind];
+    if (NEED && !can(a.employee, NEED)) return send(res, 403, { error: 'forbidden', message: 'ليست لديك صلاحية: ' + PERMS[NEED] });
     let body;
     try { body = await readBody(req); } catch (e) { return send(res, 413, { error: 'too_large' }); }
     const mp = parseMultipart(body, req.headers['content-type']);
     let meta = {};
     try { meta = JSON.parse(mp.fields.meta || '{}'); } catch (_) { return send(res, 400, { error: 'bad_meta' }); }
     if (!meta.clientId) return send(res, 400, { error: 'missing_clientId' });
+    if (kind === 'forms' || kind === 'reports') {
+      const ty = meta.formType || meta.reportType;
+      const need = ty === 'inspection' ? 'survey' : ty === 'execution' ? 'execution' : 'reports';
+      if (!can(a.employee, need) && !(need !== 'reports' && kind === 'forms' && can(a.employee, 'attendance') && db.tasks.some(t => t.id === meta.taskId && (t.assignees || []).includes(a.employee.id))))
+        return send(res, 403, { error: 'forbidden', message: 'ليست لديك صلاحية: ' + PERMS[need] });
+    }
     const exist = db[kind].find(x => x.clientId === meta.clientId && x.employeeId === a.employee.id);
     if (exist) return send(res, 200, { ok: true, id: exist.id, duplicate: true, flags: exist.flags || [] });
     const files = mp.files.map(f => storeFile(f, sub));
@@ -454,10 +507,12 @@ route('POST', '/api/admin/login', async (req, res) => {
 route('POST', '/api/admin/public-url', async (req, res, url) => {
   if (!adminAuth(req, url)) return send(res, 401, { error: 'unauthorized' });
   const b = await readJson(req);
-  let u = String(b.publicUrl || '').trim().replace(/\/+$/, '');
-  if (u && !/^https:\/\/[a-z0-9.-]+$/i.test(u)) return send(res, 400, { error: 'bad', message: 'اكتب الرابط بصيغة https://field.altaka-alwatania.iq' });
-  config.publicUrl = u; fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
-  send(res, 200, { ok: true, publicUrl: u });
+  const ok = v => !v || /^https:\/\/[a-z0-9.-]+$/i.test(v);
+  let u = b.publicUrl === undefined ? config.publicUrl : String(b.publicUrl || '').trim().replace(/\/+$/, '');
+  let e = b.erpPublicUrl === undefined ? config.erpPublicUrl : String(b.erpPublicUrl || '').trim().replace(/\/+$/, '');
+  if (!ok(u) || !ok(e)) return send(res, 400, { error: 'bad', message: 'اكتب الرابط بصيغة https://app.altaka-field.com' });
+  config.publicUrl = u; config.erpPublicUrl = e; fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+  send(res, 200, { ok: true, publicUrl: u, erpPublicUrl: e });
 });
 route('POST', '/api/admin/password', async (req, res, url) => {
   if (!adminAuth(req, url)) return send(res, 401, { error: 'unauthorized' });
@@ -470,7 +525,7 @@ route('POST', '/api/admin/password', async (req, res, url) => {
 route('GET', '/api/admin/all', (req, res, url) => {
   if (!adminAuth(req, url)) return send(res, 401, { error: 'unauthorized' });
   send(res, 200, {
-    serverTime: nowIso(), steps: STEPS, company: config.company, erpApiKey: config.erpApiKey, publicUrl: config.publicUrl || '',
+    serverTime: nowIso(), steps: STEPS, company: config.company, erpApiKey: config.erpApiKey, publicUrl: config.publicUrl || '', erpPublicUrl: config.erpPublicUrl || '', permNames: PERMS, profiles: Object.fromEntries(Object.entries(PROFILES).map(([k, v]) => [k, { t: v.t, perms: v.perms }])),
     employees: db.employees.map(e => Object.assign(pubEmployee(e), { active: e.active !== false, hasPin: !!e.pinHash })),
     warehouses: db.warehouses.map(w => Object.assign({}, w, { code: makeCode('W', w.id) })),
     equipment: db.equipment,
@@ -507,6 +562,7 @@ crud('employees', 'E', (it, b, isNew) => {
   if (db.employees.some(e => e.code === String(b.code) && e.id !== it.id)) return 'رقم الموظف مستخدم مسبقاً';
   if (isNew && !b.pin) return 'الرمز السري مطلوب للموظف الجديد';
   Object.assign(it, { code: String(b.code).trim(), name: b.name.trim(), department: b.department || '', jobTitle: b.jobTitle || '', phone: b.phone || '', email: String(b.email || '').trim(), active: b.active !== false });
+  cleanPerms(b, it);
   if (b.pin) { if (String(b.pin).length < 4) return 'الرمز السري 4 أرقام على الأقل'; it.pinHash = hashPin(b.pin); db.sessions = db.sessions.filter(s => s.employeeId !== it.id); }
 });
 crud('warehouses', 'WH', (it, b) => {
@@ -580,6 +636,7 @@ route('POST', '/api/erp/sync', async (req, res, url) => {
     if (!e) { e = { id: x.id || uid('E'), createdAt: nowIso() }; db.employees.push(e); }
     Object.assign(e, { code: String(x.code), name: x.name, department: x.department || '', jobTitle: x.jobTitle || '', phone: x.phone || '', email: x.email != null ? String(x.email) : (e.email || ''), active: x.active !== false, updatedAt: nowIso() });
     if (x.pin) e.pinHash = hashPin(x.pin);
+    if (x.profile !== undefined || Array.isArray(x.perms)) cleanPerms(x, e);
     out.employees++;
   });
   ['warehouses', 'equipment'].forEach(k => (b[k] || []).forEach(x => {

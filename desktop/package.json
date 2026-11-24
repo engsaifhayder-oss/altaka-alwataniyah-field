@@ -1,8 +1,8 @@
 {
   "name": "altaka-alwataniyah-field",
-  "productName": "ALTAKA-ALWATANIYAH Field",
-  "version": "1.0.0",
-  "description": "تطبيق الموظف الميداني – الطاقة الوطنية (ويندوز وماك)",
+  "productName": "ALTAKA-ALWATANIYAH",
+  "version": "2.0.0",
+  "description": "التطبيق الموحد – الطاقة الوطنية (ويندوز وماك)",
   "main": "main.js",
   "author": "ALTAKA-ALWATANIYAH",
   "license": "UNLICENSED",
@@ -18,7 +18,7 @@
   },
   "build": {
     "appId": "com.altakaalwataniyah.field",
-    "productName": "ALTAKA-ALWATANIYAH Field",
+    "productName": "ALTAKA-ALWATANIYAH",
     "files": [
       "main.js",
       "app/**/*"
@@ -56,7 +56,7 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "shortcutName": "الموظف الميداني",
+      "shortcutName": "الطاقة الوطنية",
       "artifactName": "altaka-alwataniyah-field-setup.${ext}"
     },
     "portable": {
@@ -85,7 +85,7 @@
       }
     },
     "dmg": {
-      "title": "ALTAKA-ALWATANIYAH Field"
+      "title": "ALTAKA-ALWATANIYAH"
     },
     "afterPack": "build/adhoc-sign.js",
     "copyright": "ALTAKA-ALWATANIYAH"

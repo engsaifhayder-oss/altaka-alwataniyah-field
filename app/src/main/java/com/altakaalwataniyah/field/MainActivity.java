@@ -100,7 +100,10 @@ public class MainActivity extends Activity {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri u = request.getUrl();
-                if ("appassets.androidplatform.net".equals(u.getHost())) return false;
+                String h = u.getHost() == null ? "" : u.getHost();
+                if ("appassets.androidplatform.net".equals(h)) return false;
+                // منظومة ERP ونطاقات الشركة تُفتح داخل التطبيق الموحد (عبر Cloudflare)
+                if ("https".equals(u.getScheme()) && (h.equals("altaka-field.com") || h.endsWith(".altaka-field.com") || h.equals("altaka-alwatania.iq") || h.endsWith(".altaka-alwatania.iq"))) return false;
                 try { startActivity(new Intent(Intent.ACTION_VIEW, u)); } catch (Exception ignored) { }
                 return true;
             }
@@ -267,6 +270,12 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
+        String cu = web.getUrl();
+        if (cu != null && !cu.contains("appassets.androidplatform.net")) {
+            // داخل منظومة ERP: رجوع داخلها، ثم إلى شاشة التطبيق الرئيسية
+            if (web.canGoBack()) web.goBack(); else web.loadUrl(START_URL);
+            return;
+        }
         web.evaluateJavascript("window.appBack?String(window.appBack()):'false'", value -> {
             if (value == null || !value.contains("true")) MainActivity.super.onBackPressed();
         });

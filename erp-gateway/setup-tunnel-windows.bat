@@ -1,9 +1,9 @@
 @echo off
 chcp 65001 >nul
 setlocal EnableDelayedExpansion
-title Cloudflare Tunnel - ALTAKA-ALWATANIYAH Field
+title Cloudflare Tunnel - ALTAKA-ALWATANIYAH
 rem Installs Cloudflare Tunnel (cloudflared) as a Windows service, so the field gateway is reachable from
-rem anywhere at https://field.<your-domain>. See: اعداد-الوصول-من-الانترنت.txt
+rem anywhere at https://app.altaka-field.com and the ERP at https://erp.altaka-field.com. See: دليل-الخادم-والتطبيق-الموحد.txt
 net session >nul 2>&1
 if errorlevel 1 (
   echo.
@@ -55,7 +55,11 @@ if errorlevel 1 (
   echo  In the Cloudflare dashboard the tunnel should now show "HEALTHY".
 )
 echo.
-pause
+echo  Public hostnames needed on this tunnel (Cloudflare dashboard):
+echo    app.altaka-field.com  -^>  HTTP  localhost:8780
+echo    erp.altaka-field.com  -^>  HTTPS localhost:5443  (No TLS Verify = ON)
+echo.
+if /i not "%~1"=="nopause" pause
 exit /b 0
 
 :findcfd

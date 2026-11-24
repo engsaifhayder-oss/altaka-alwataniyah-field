@@ -1,6 +1,25 @@
-// ALTAKA-ALWATANIYAH – تطبيق الموظف الميداني (نسخة ويندوز وماك)
+// ALTAKA-ALWATANIYAH – التطبيق الموحد (نسخة ويندوز وماك): الأدوات الميدانية + منظومة ERP عبر Cloudflare
 const { app, BrowserWindow, session, shell, Menu, systemPreferences } = require('electron');
 const path = require('path');
+
+// نطاقات الشركة التي تُفتح داخل التطبيق (منظومة ERP والبوابة عبر Cloudflare)
+const COMPANY = /^https:\/\/([a-z0-9-]+\.)*(altaka-field\.com|altaka-alwatania\.iq)(:\d+)?(\/|$)/i;
+let erpWin = null;
+function openErp(url) {
+  if (erpWin && !erpWin.isDestroyed()) { erpWin.loadURL(url); erpWin.focus(); return; }
+  erpWin = new BrowserWindow({
+    width: 1366, height: 860, minWidth: 900, minHeight: 600, title: 'منظومة ERP – الطاقة الوطنية',
+    icon: path.join(__dirname, 'build', 'icon.png'), autoHideMenuBar: true,
+    webPreferences: { contextIsolation: true, nodeIntegration: false, spellcheck: false }
+  });
+  erpWin.loadURL(url);
+  erpWin.webContents.setWindowOpenHandler(({ url: u }) => {
+    if (u.startsWith('blob:') || COMPANY.test(u)) return { action: 'allow', overrideBrowserWindowOptions: { autoHideMenuBar: true } };
+    shell.openExternal(u); return { action: 'deny' };
+  });
+  erpWin.webContents.on('will-navigate', (e, u) => { if (!COMPANY.test(u) && !u.startsWith('blob:')) { e.preventDefault(); shell.openExternal(u); } });
+  erpWin.on('closed', () => { erpWin = null; });
+}
 
 // استخدام خدمة الموقع في ويندوز (Windows Location) لتحديد الموقع الجغرافي
 app.commandLine.appendSwitch('enable-features', 'WinrtGeolocationImplementation');
@@ -8,7 +27,7 @@ app.commandLine.appendSwitch('enable-features', 'WinrtGeolocationImplementation'
 function createWindow() {
   const win = new BrowserWindow({
     width: 480, height: 900, minWidth: 380, minHeight: 600,
-    title: 'الموظف الميداني – الطاقة الوطنية',
+    title: 'الطاقة الوطنية – التطبيق الموحد',
     icon: path.join(__dirname, 'build', 'icon.png'),
     backgroundColor: '#002816',
     autoHideMenuBar: true,
@@ -20,9 +39,10 @@ function createWindow() {
   win.webContents.setWindowOpenHandler(({ url }) => {
     // فتح تقارير PDF (تطبيقا الكشف والتنفيذ) داخل نافذة التطبيق
     if (url.startsWith('blob:')) return { action: 'allow', overrideBrowserWindowOptions: { width: 900, height: 1000, autoHideMenuBar: true } };
+    if (COMPANY.test(url)) { openErp(url); return { action: 'deny' }; }
     shell.openExternal(url); return { action: 'deny' };
   });
-  win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('file://') && !url.startsWith('blob:')) { e.preventDefault(); shell.openExternal(url); } });
+  win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('file://') && !url.startsWith('blob:')) { e.preventDefault(); if (COMPANY.test(url)) openErp(url); else shell.openExternal(url); } });
 }
 
 app.whenReady().then(async () => {
