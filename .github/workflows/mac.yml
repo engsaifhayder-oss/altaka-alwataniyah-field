@@ -1,11 +1,8 @@
 name: macOS build (adds the DMGs to the latest release)
 
-# يعمل تلقائياً بعد نجاح البناء الرئيسي، ويمكن تشغيله يدوياً.
+# يشغّله البناء الرئيسي بعد نشر الإصدار، ويمكن تشغيله يدوياً.
 # خوادم ماك arm64 في GitHub مزدحمة، فيُستعمل خادم Intel مع بديل arm64.
 on:
-  workflow_run:
-    workflows: [ "Build unified app (Android + Windows + macOS + iOS web) + Windows server" ]
-    types: [ completed ]
   workflow_dispatch:
 
 permissions:
@@ -13,7 +10,6 @@ permissions:
 
 jobs:
   macos:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure'
     strategy:
       fail-fast: false
       max-parallel: 1

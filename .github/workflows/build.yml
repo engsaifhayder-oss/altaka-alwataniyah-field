@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
   pages: write
   id-token: write
 
@@ -119,3 +120,5 @@ jobs:
             --title "منظومة ERP – الطاقة الوطنية – الإصدار 3.${{ github.run_number }}" \
             --notes "برنامج واحد: منظومة ERP مع العمل الميداني (الحضور، الكشف، التنفيذ، المعوقات، التقارير) حسب صفة الموظف — الدخول باسم مستخدم ERP فقط · أندرويد: altaka-alwataniyah-field.apk · ويندوز: altaka-alwataniyah-field-setup.exe أو altaka-alwataniyah-field-portable.exe · ماك: altaka-alwataniyah-field-mac-arm64.dmg (M1–M4) أو altaka-alwataniyah-field-mac-x64.dmg (Intel) — تُضاف بعد اكتمال بنائها · الآيفون: افتح https://app.altaka-field.com/erp/ في Safari ثم «إضافة إلى الشاشة الرئيسية» · خادم الحاسبة الأم (ويندوز): ALTAKA-ALWATANIYAH-Server-Windows.zip ← install-server-windows.bat كمسؤول · برنامج الحسابات: ALTAKA-ALWATANIYAH-Accounting-Server-Windows.zip ← install-accounting-windows.bat كمسؤول، ثم https://acc.altaka-field.com" \
             --latest
+          # بناء نسخ ماك وإضافتها لهذا الإصدار
+          gh workflow run mac.yml --ref main -R ${{ github.repository }} || true
