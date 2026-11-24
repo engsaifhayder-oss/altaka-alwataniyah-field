@@ -87,11 +87,20 @@ jobs:
           cp server-windows/* pkg/ALTAKA-ALWATANIYAH-Server-Windows/
           (cd pkg && zip -r ../ALTAKA-ALWATANIYAH-Server-Windows.zip ALTAKA-ALWATANIYAH-Server-Windows)
           zip -r altaka-alwataniyah-field-gateway.zip erp-gateway
+      - name: Package accounting program (Windows server)
+        run: |
+          node --check accounting/server.js
+          A=pkg/ALTAKA-ALWATANIYAH-Accounting-Server-Windows
+          mkdir -p $A/accounting
+          cp -r accounting/server.js accounting/chart.js accounting/start-windows.bat accounting/public $A/accounting/
+          cp accounting/install-accounting-windows.bat "accounting/دليل-برنامج-الحسابات.txt" $A/
+          (cd pkg && zip -r ../ALTAKA-ALWATANIYAH-Accounting-Server-Windows.zip ALTAKA-ALWATANIYAH-Accounting-Server-Windows)
       - uses: actions/upload-artifact@v4
         with:
           name: gateway
           path: |
             ALTAKA-ALWATANIYAH-Server-Windows.zip
+            ALTAKA-ALWATANIYAH-Accounting-Server-Windows.zip
             altaka-alwataniyah-field-gateway.zip
 
   # نسخة الآيفون: تطبيق ويب يُضاف إلى الشاشة الرئيسية من Safari
@@ -123,5 +132,5 @@ jobs:
           gh release delete latest --yes --cleanup-tag || true
           gh release create latest out/* \
             --title "التطبيق الموحد – الطاقة الوطنية – الإصدار 2.${{ github.run_number }}" \
-            --notes "التطبيق الموحد (ERP + الحضور + الكشف + التنفيذ + المعوقات + التقارير) · الصلاحيات حسب اختصاص الموظف · أندرويد: altaka-alwataniyah-field.apk · ويندوز: altaka-alwataniyah-field-setup.exe (تثبيت) أو altaka-alwataniyah-field-windows.zip (فك الضغط ثم شغّل ALTAKA-ALWATANIYAH.exe) · ماك: altaka-alwataniyah-field-mac-arm64.dmg (M1–M4) أو altaka-alwataniyah-field-mac-x64.dmg (Intel) · الآيفون: افتح https://app.altaka-field.com/app أو https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/ في Safari ثم «إضافة إلى الشاشة الرئيسية» · الخادم (ويندوز فقط، الحاسبة الأم): ALTAKA-ALWATANIYAH-Server-Windows.zip ← شغّل install-server-windows.bat كمسؤول" \
+            --notes "التطبيق الموحد (ERP + الحضور + الكشف + التنفيذ + المعوقات + التقارير) · الصلاحيات حسب اختصاص الموظف · أندرويد: altaka-alwataniyah-field.apk · ويندوز: altaka-alwataniyah-field-setup.exe (تثبيت) أو altaka-alwataniyah-field-windows.zip (فك الضغط ثم شغّل ALTAKA-ALWATANIYAH.exe) · ماك: altaka-alwataniyah-field-mac-arm64.dmg (M1–M4) أو altaka-alwataniyah-field-mac-x64.dmg (Intel) · الآيفون: افتح https://app.altaka-field.com/app أو https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/ في Safari ثم «إضافة إلى الشاشة الرئيسية» · الخادم (ويندوز فقط، الحاسبة الأم): ALTAKA-ALWATANIYAH-Server-Windows.zip ← شغّل install-server-windows.bat كمسؤول · برنامج الحسابات (خادم ويندوز): ALTAKA-ALWATANIYAH-Accounting-Server-Windows.zip ← install-accounting-windows.bat كمسؤول، ثم https://acc.altaka-field.com" \
             --latest

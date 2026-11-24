@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f3d2e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg">
+<title>الحسابات – الطاقة الوطنية</title>
+<style>
+:root{--dk:#0f3d2e;--dk2:#16533f;--lime:#8cc63f;--bg:#f3f6f4;--card:#fff;--ink:#1c2b25;--mut:#6b7c74;--line:#e2e9e5;--red:#c0392b;--amber:#c98a12;--blue:#1f6fb2}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 "Segoe UI",Tahoma,"Noto Naskh Arabic",system-ui,sans-serif}
+a{color:var(--dk2)}
+button,input,select,textarea{font:inherit}
+.hidden{display:none!important}
+#app{display:flex;min-height:100vh}
+#side{width:250px;background:var(--dk);color:#e8f1ec;flex-shrink:0;position:sticky;top:0;height:100vh;overflow:auto}
+#side .brand{padding:16px 16px 10px;border-bottom:1px solid rgba(255,255,255,.1)}
+#side .brand b{display:block;font-size:16px}#side .brand small{opacity:.7;font-size:12px}
+#side nav{padding:6px 0 30px}
+#side h4{margin:14px 16px 4px;font-size:12px;opacity:.55;font-weight:600}
+#side a{display:block;color:#e8f1ec;text-decoration:none;padding:7px 18px;font-size:14px;border-right:3px solid transparent}
+#side a:hover{background:rgba(255,255,255,.06)}
+#side a.on{background:rgba(140,198,63,.16);border-right-color:var(--lime);color:#fff;font-weight:600}
+#main{flex:1;min-width:0;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:10px;padding:10px 18px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+header h1{font-size:18px;margin:0;flex:1}
+#menuBtn{display:none}
+#view{padding:18px;max-width:1300px;width:100%}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+.card h3{margin:0 0 12px;font-size:16px}
+.btn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 14px;cursor:pointer;color:var(--ink);text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{border-color:#b8c8bf}
+.btn.pri{background:var(--dk);border-color:var(--dk);color:#fff}
+.btn.lime{background:var(--lime);border-color:var(--lime);color:#0b2a1f;font-weight:600}
+.btn.red{color:var(--red);border-color:#efc4be}
+.btn.sm{padding:3px 10px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.f{display:flex;flex-direction:column;gap:3px;min-width:150px;flex:1}
+.f.s{flex:0 0 140px;min-width:120px}
+.f label{font-size:12.5px;color:var(--mut)}
+input,select,textarea{border:1px solid #cfdad4;border-radius:8px;padding:7px 9px;background:#fff;width:100%;color:var(--ink)}
+input:focus,select:focus,textarea:focus{outline:2px solid rgba(140,198,63,.45);border-color:var(--lime)}
+textarea{min-height:60px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}
+th{background:#f5f8f6;font-weight:600;font-size:13px;color:#33463d;position:sticky;top:0}
+td.n,th.n{text-align:left;direction:ltr;white-space:nowrap;font-variant-numeric:tabular-nums}
+tr.click{cursor:pointer}tr.click:hover td{background:#f8fbf9}
+tr.void td{color:#9aa;text-decoration:line-through}
+tr.tot td{font-weight:700;background:#f5f8f6}
+tr.g td{font-weight:600;background:#fbfcfb}
+.tw{overflow:auto;max-height:70vh;border:1px solid var(--line);border-radius:10px}
+.pill{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;background:#eef3f0;color:#33463d}
+.pill.ok{background:#e4f4d6;color:#2d6a0f}.pill.bad{background:#fbe3df;color:var(--red)}.pill.warn{background:#fff1d6;color:#8a5a00}.pill.blue{background:#e3eefa;color:var(--blue)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:14px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px}
+.kpi small{color:var(--mut)}.kpi b{display:block;font-size:20px;direction:ltr;text-align:right;margin-top:2px}
+.kpi.dk{background:var(--dk);color:#fff;border-color:var(--dk)}.kpi.dk small{color:#cfe3d8}
+.bars{display:flex;gap:8px;align-items:flex-end;height:170px;padding-top:10px}
+.bars .m{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--mut)}
+.bars .bb{display:flex;gap:2px;align-items:flex-end;height:140px}
+.bars .bb i{width:12px;border-radius:3px 3px 0 0;display:block}
+.mut{color:var(--mut)}.red{color:var(--red)}.grn{color:#2d6a0f}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
+.toolbar .sp{flex:1}
+.lines td{padding:4px}.lines input,.lines select{padding:5px 6px}
+.lines .del{color:var(--red);border:0;background:none;cursor:pointer;font-size:18px}
+.sum{margin-top:10px;display:grid;grid-template-columns:auto 160px;gap:4px 14px;justify-content:end;align-items:center}
+.sum b{direction:ltr;text-align:left}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#16241e;color:#fff;padding:10px 18px;border-radius:10px;z-index:99;opacity:0;transition:.25s;pointer-events:none;max-width:90vw}
+#toast.on{opacity:1}
+.ov{position:fixed;inset:0;background:rgba(5,25,15,.5);display:grid;place-items:center;z-index:50;padding:14px}
+.dlg{background:#fff;border-radius:14px;padding:18px;width:min(560px,100%);max-height:90vh;overflow:auto}
+.dlg h3{margin-top:0}
+.login{min-height:100vh;display:grid;place-items:center;padding:16px;background:linear-gradient(160deg,var(--dk),#0a2a20)}
+.login .box{background:#fff;border-radius:16px;padding:26px;width:min(400px,100%)}
+.login h2{margin:0 0 4px;color:var(--dk)}
+.tree td:first-child{white-space:nowrap}
+.chk{display:flex;gap:14px;flex-wrap:wrap}
+.warnbox{background:#fff6e5;border:1px solid #f2d79b;border-radius:8px;padding:8px 12px;color:#7a5200}
+.okbox{background:#eef8e6;border:1px solid #cfe8b8;border-radius:8px;padding:8px 12px;color:#2d6a0f}
+@media (max-width:900px){
+  #side{position:fixed;right:0;z-index:40;transform:translateX(100%);transition:.2s;box-shadow:0 0 30px rgba(0,0,0,.3)}
+  #side.open{transform:none}
+  #menuBtn{display:inline-flex}
+  #view{padding:12px}
+  .f{min-width:130px}
+  .kpis{grid-template-columns:repeat(2,1fr);gap:8px}.kpi{padding:10px}.kpi b{font-size:16px}
+  #who{display:none}
+}
+/* الطباعة */
+#print{display:none}
+@media print{
+  body{background:#fff}
+  #app,#toast,.ov{display:none!important}
+  #print{display:block;padding:0 6mm;color:#000;font-size:13px}
+  #print .tw{max-height:none;overflow:visible;border:0}#print th{position:static}#print .btn{display:none}#print .card{border:0;padding:0}#print tr.click{cursor:default}
+  @page{size:A4;margin:12mm 10mm}
+}
+.ph{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid var(--dk);padding-bottom:8px;margin-bottom:12px}
+.ph .co b{font-size:17px;color:var(--dk)}.ph .co small{display:block;color:#555}
+.ph .ti{text-align:left}.ph .ti b{font-size:20px;color:var(--dk)}
+.pt{width:100%;border-collapse:collapse;margin:8px 0}.pt th,.pt td{border:1px solid #bbb;padding:5px 7px}.pt th{background:#eef3f0}
+.psig{display:flex;justify-content:space-between;margin-top:40px}.psig div{text-align:center;width:30%;border-top:1px solid #777;padding-top:4px}
+.pfoot{margin-top:20px;border-top:1px solid #ccc;padding-top:6px;font-size:11px;color:#666;text-align:center}
+</style>
+</head>
+<body>
+<div id="app" class="hidden">
+  <aside id="side"><div class="brand"><b>الحسابات</b><small id="coName"></small></div><nav id="nav"></nav></aside>
+  <div id="main">
+    <header><button class="btn sm" id="menuBtn">☰</button><h1 id="title"></h1><span class="mut" id="who"></span><button class="btn sm" onclick="go('#/password')">كلمة المرور</button><button class="btn sm" onclick="logout()">خروج</button></header>
+    <div id="view"></div>
+  </div>
+</div>
+<div id="auth"></div>
+<div id="print"></div>
+<div id="toast"></div>
+<script>
+'use strict';
+/* ================= أساسيات ================= */
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const LS={get:(k,d)=>{try{const v=localStorage.getItem('acc.'+k);return v==null?d:JSON.parse(v)}catch(_){return d}},set:(k,v)=>{try{localStorage.setItem('acc.'+k,JSON.stringify(v))}catch(_){}},del:k=>{try{localStorage.removeItem('acc.'+k)}catch(_){}}};
+let TOKEN=LS.get('token',null),M=null;
+const CUR={IQD:'د.ع',USD:'$'};
+function num(v,d){v=Number(v)||0;if(d==null)d=Math.abs(v%1)>0.004?2:0;return v.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d})}
+const money=(v,c)=>num(v,c==='USD'?2:0)+' '+(CUR[c||'IQD']||'');
+const iqd=v=>num(v,0);
+function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('on'),3200)}
+async function api(path,opt){opt=opt||{};const r=await fetch(path,{method:opt.method||'GET',headers:{'Content-Type':'application/json',Authorization:'Bearer '+(TOKEN||'')},body:opt.body?JSON.stringify(opt.body):undefined});
+  const j=await r.json().catch(()=>({}));if(r.status===401&&TOKEN){TOKEN=null;LS.del('token');showLogin('انتهت الجلسة — سجّل الدخول مجدداً');throw new Error('انتهت الجلسة')}
+  if(!r.ok)throw new Error(j.message||('خطأ '+r.status));return j}
+const post=(p,b)=>api(p,{method:'POST',body:b||{}});
+function dlg(html){closeDlg();const o=document.createElement('div');o.className='ov';o.id='dlg';o.innerHTML=`<div class="dlg">${html}</div>`;o.addEventListener('mousedown',e=>{if(e.target===o)closeDlg()});document.body.appendChild(o);return o}
+function closeDlg(){const o=$('#dlg');if(o)o.remove()}
+function ask(title,label){return new Promise(res=>{dlg(`<h3>${esc(title)}</h3><label class="mut">${esc(label||'')}</label><textarea id="askT"></textarea><div class="row" style="margin-top:10px"><button class="btn pri" id="askY">تأكيد</button><button class="btn" id="askN">إلغاء</button></div>`);
+  $('#askY').onclick=()=>{const v=$('#askT').value.trim();closeDlg();res(v||'—')};$('#askN').onclick=()=>{closeDlg();res(null)};$('#askT').focus()})}
+const today=()=>M?M.today:new Date().toISOString().slice(0,10);
+const set=k=>(M&&M.settings[k])||'';
+const P=p=>{const ps=(M&&M.user.perms)||[];return ps.includes('*')||ps.includes(p)||(p.startsWith('reports.')&&ps.includes('reports'))};
+const isAdmin=()=>M&&M.user.role==='admin';
+/* القوائم */
+const acc=c=>(M.accounts.find(a=>a.code===c)||{});
+const accName=c=>c?c+' – '+(acc(c).name||''):'';
+function accOpts(sel,filter,allowGroup){return M.accounts.filter(a=>a.active&&(allowGroup||!a.is_group)&&(!filter||filter(a))).map(a=>`<option value="${a.code}" ${a.code===String(sel||'')?'selected':''}>${'  '.repeat(Math.max(0,a.code.length-1))}${a.code} – ${esc(a.name)}</option>`).join('')}
+function partyOpts(sel,kinds){return '<option value="">— اختر —</option>'+M.parties.filter(p=>(p.active||p.id==sel)&&(!kinds||kinds.includes(p.kind))).map(p=>`<option value="${p.id}" ${p.id==sel?'selected':''}>${esc(p.name)}${p.currency==='USD'?' ($)':''}</option>`).join('')}
+function itemOpts(sel,stockOnly){return '<option value="">— بدون مادة (وصف حر) —</option>'+M.items.filter(i=>(i.active||i.id==sel)&&(!stockOnly||i.stock)).map(i=>`<option value="${i.id}" ${i.id==sel?'selected':''}>${esc(i.name)}${i.code?' ['+esc(i.code)+']':''}</option>`).join('')}
+function projOpts(sel){return '<option value="">— بدون مشروع —</option>'+M.projects.filter(p=>p.active||p.id==sel).map(p=>`<option value="${p.id}" ${p.id==sel?'selected':''}>${esc(p.code)} – ${esc(p.name)}</option>`).join('')}
+function whOpts(sel){return M.warehouses.filter(w=>w.active||w.id==sel).map(w=>`<option value="${w.id}" ${w.id==sel?'selected':''}>${esc(w.name)}</option>`).join('')}
+const curOpts=c=>`<option value="IQD" ${c!=='USD'?'selected':''}>دينار عراقي</option><option value="USD" ${c==='USD'?'selected':''}>دولار أمريكي</option>`;
+const KIND={manual:'قيد يدوي',opening:'قيد افتتاحي',sale:'مبيعات',purchase:'مشتريات',receipt:'سند قبض',payment:'سند صرف',stock:'مخزن'};
+const PK={customer:'زبون',supplier:'مورد',both:'زبون ومورد',employee:'موظف / عهدة',other:'أخرى'};
+const STK={opening:'رصيد افتتاحي',issue:'صرف لمشروع',return:'إرجاع من مشروع',adjust:'تسوية جرد',transfer:'تحويل بين مخازن'};
+const QS={draft:['مسودة',''],sent:['مرسل للزبون','blue'],accepted:['موافق عليه','ok'],rejected:['مرفوض','bad'],invoiced:['محوّل لفاتورة','ok']};
+const st=s=>s==='void'?'<span class="pill bad">ملغى</span>':'<span class="pill ok">مرحّل</span>';
+function csv(rows,name){const t='﻿'+rows.map(r=>r.map(c=>{c=String(c==null?'':c);return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c}).join(',')).join('\r\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv;charset=utf-8'}));a.download=name+'.csv';document.body.appendChild(a);a.click();a.remove()}
+function tableCsv(name){const t=$('#view table');if(!t)return;csv([...t.rows].map(r=>[...r.cells].map(c=>c.innerText.trim())),name)}
+
+/* التفقيط بالعربية */
+function tafqeet(n,cur){n=Math.round((Number(n)||0)*100)/100;const ip=Math.floor(n),fp=Math.round((n-ip)*100);
+  const ones=['','واحد','اثنان','ثلاثة','أربعة','خمسة','ستة','سبعة','ثمانية','تسعة','عشرة','أحد عشر','اثنا عشر','ثلاثة عشر','أربعة عشر','خمسة عشر','ستة عشر','سبعة عشر','ثمانية عشر','تسعة عشر'];
+  const tens=['','','عشرون','ثلاثون','أربعون','خمسون','ستون','سبعون','ثمانون','تسعون'];
+  const hund=['','مائة','مائتان','ثلاثمائة','أربعمائة','خمسمائة','ستمائة','سبعمائة','ثمانمائة','تسعمائة'];
+  function u999(x){const h=Math.floor(x/100),r=x%100,p=[];if(h)p.push(hund[h]);if(r){if(r<20)p.push(ones[r]);else{const o=r%10,t=Math.floor(r/10);p.push(o?ones[o]+' و'+tens[t]:tens[t])}}return p.join(' و')}
+  const scales=[['',''],['ألف','ألفان','آلاف'],['مليون','مليونان','ملايين'],['مليار','ملياران','مليارات']];
+  function words(x){if(!x)return 'صفر';const parts=[];let i=0;while(x>0){const g=x%1000;if(g){let w;const s=scales[i];
+      if(i===0)w=u999(g);else if(g===1)w=s[0];else if(g===2)w=s[1];else if(g<=10)w=u999(g)+' '+s[2];else w=u999(g)+' '+s[0];parts.unshift(w)}x=Math.floor(x/1000);i++}return parts.join(' و')}
+  const main=cur==='USD'?'دولار أمريكي':'دينار عراقي',sub=cur==='USD'?'سنت':'فلس';
+  return 'فقط '+words(ip)+' '+main+(fp?' و'+words(fp)+' '+sub:'')+' لا غير'}
+
+/* ================= الدخول ================= */
+async function boot(){let s;try{s=await api('/api/status')}catch(e){$('#auth').innerHTML='<div class="login"><div class="box"><h2>تعذّر الاتصال بالخادم</h2><p>'+esc(e.message)+'</p></div></div>';return}
+  if(s.setup)return showSetup(s);if(!TOKEN)return showLogin();
+  try{await loadMeta();start()}catch(e){if(TOKEN)showLogin(e.message)}}
+function showSetup(){$('#app').classList.add('hidden');$('#auth').innerHTML=`<div class="login"><div class="box"><h2>إعداد برنامج الحسابات</h2><p class="mut">أنشئ حساب مدير النظام (مرة واحدة، من الحاسبة الأم).</p>
+  <div class="f"><label>اسم المستخدم</label><input id="sU" value="admin" dir="ltr"></div><div class="f" style="margin-top:8px"><label>الاسم</label><input id="sN" value="مدير النظام"></div>
+  <div class="f" style="margin-top:8px"><label>كلمة المرور (8 أحرف على الأقل)</label><input id="sP" type="password"></div><div class="f" style="margin-top:8px"><label>سعر صرف الدولار (دينار)</label><input id="sR" value="1310" inputmode="decimal" dir="ltr"></div>
+  <p id="sM" class="hidden"></p><button class="btn pri" style="width:100%;justify-content:center;margin-top:12px" id="sB">إنشاء الحساب</button></div></div>`;
+  $('#sB').onclick=async()=>{try{await post('/api/setup',{username:$('#sU').value,name:$('#sN').value,password:$('#sP').value,usd_rate:$('#sR').value});showLogin('تم الإعداد — سجّل الدخول',true)}catch(e){const m=$('#sM');m.className='warnbox';m.textContent=e.message}}}
+function showLogin(msg,ok){$('#app').classList.add('hidden');$('#auth').innerHTML=`<div class="login"><div class="box"><h2>برنامج الحسابات</h2><p class="mut">الطاقة الوطنية للمقاولات والتجارة العامة والطاقة المتجددة</p>
+  <div class="f"><label>اسم المستخدم</label><input id="lU" dir="ltr" autocomplete="username"></div><div class="f" style="margin-top:8px"><label>كلمة المرور</label><input id="lP" type="password" autocomplete="current-password"></div>
+  <p id="lM" class="${msg?(ok?'okbox':'warnbox'):'hidden'}">${esc(msg||'')}</p><button class="btn pri" style="width:100%;justify-content:center;margin-top:12px" id="lB">دخول</button></div></div>`;
+  const doL=async()=>{try{const j=await post('/api/login',{username:$('#lU').value,password:$('#lP').value});TOKEN=j.token;LS.set('token',TOKEN);await loadMeta();start()}catch(e){const m=$('#lM');m.className='warnbox';m.textContent=e.message}};
+  $('#lB').onclick=doL;$('#lP').onkeydown=e=>{if(e.key==='Enter')doL()};$('#lU').focus()}
+async function loadMeta(){M=await api('/api/meta')}
+async function logout(){try{await post('/api/logout')}catch(_){}TOKEN=null;LS.del('token');showLogin()}
+function start(){$('#auth').innerHTML='';$('#app').classList.remove('hidden');$('#coName').textContent=set('company_ar');$('#who').textContent=M.user.name+' · '+M.user.roleName;buildNav();route()}
+
+/* ================= القائمة ================= */
+const NAV=[
+  ['',[['#/','لوحة القيادة','reports.sales']]],
+  ['المبيعات',[['#/quotes','عروض الأسعار','sales'],['#/sales','فواتير البيع','sales'],['#/parties/customer','الزبائن','sales']]],
+  ['المشتريات',[['#/purchases','فواتير الشراء','purchases'],['#/parties/supplier','الموردون','purchases']]],
+  ['الصندوق والمصارف',[['#/vouchers/receipt','سندات القبض','gl'],['#/vouchers/payment','سندات الصرف والمصاريف','gl'],['#/r/cash','أرصدة الصناديق والمصارف','reports']]],
+  ['المخازن',[['#/items','المواد','store'],['#/stock','حركات المخزن (صرف/جرد/تحويل)','store'],['#/r/inventory','أرصدة المخزون','reports.store'],['#/warehouses','المخازن','store']]],
+  ['المشاريع',[['#/projects','المشاريع ومراكز الكلفة','projects'],['#/r/projects','تكاليف وأرباح المشاريع','reports.sales']]],
+  ['الحسابات العامة',[['#/accounts','دليل الحسابات','gl'],['#/journals','القيود اليومية','gl'],['#/parties/employee','الموظفون والعهد','gl'],['#/parties/other','جهات أخرى','gl']]],
+  ['التقارير',[['#/r/trial','ميزان المراجعة','reports'],['#/r/ledger','كشف حساب (الأستاذ)','reports'],['#/r/income','قائمة الدخل','reports'],['#/r/balance','الميزانية العمومية','reports'],['#/r/parties/customer','ذمم الزبائن وأعمارها','reports.sales'],['#/r/parties/supplier','ذمم الموردين','reports.sales'],['#/r/sales','تقرير المبيعات والمشتريات','reports.sales']]],
+  ['النظام',[['#/settings','الإعدادات','admin'],['#/users','المستخدمون والصلاحيات','admin'],['#/r/audit','سجل التدقيق','admin']]]
+];
+function navOk(p){return p==='admin'?isAdmin():P(p)}
+function buildNav(){$('#nav').innerHTML=NAV.map(([h,ls])=>{const v=ls.filter(l=>navOk(l[2]));return v.length?(h?`<h4>${h}</h4>`:'')+v.map(l=>`<a href="${l[0]}">${l[1]}</a>`).join(''):''}).join('')}
+$('#menuBtn').onclick=()=>$('#side').classList.toggle('open');
+window.addEventListener('hashchange',route);
+function go(h){if(location.hash===h)route();else location.hash=h}
+function setTitle(t){$('#title').textContent=t;document.title=t+' – الحسابات'}
+async function route(){if(!M)return;$('#side').classList.remove('open');closeDlg();const h=location.hash||'#/';
+  $$('#nav a').forEach(a=>a.classList.toggle('on',a.getAttribute('href')===h||(h.startsWith(a.getAttribute('href')+'/')&&a.getAttribute('href')!=='#/')));
+  const parts=h.slice(2).split('/'),[a,b,c]=parts;const V=$('#view');V.innerHTML='<p class="mut">جارٍ التحميل…</p>';
+  try{
+    if(!a)return navOk('reports.sales')?pgDash():pgHomeLite();
+    const R={quotes:pgQuotes,quote:()=>pgQuote(b),sales:()=>pgInvoices('sale'),purchases:()=>pgInvoices('purchase'),invoice:()=>b==='new'?pgInvoiceForm(c):pgInvoiceView(b),
+      vouchers:()=>pgVouchers(b),voucher:()=>b==='new'?pgVoucherForm(c):pgVoucherView(b),journals:pgJournals,journal:()=>b==='new'?pgJournalForm():pgJournalView(b),
+      parties:()=>pgParties(b),items:pgItems,stock:pgStock,stockdoc:()=>b==='new'?pgStockForm(c):pgStockView(b),warehouses:pgWarehouses,projects:pgProjects,
+      accounts:pgAccounts,settings:pgSettings,users:pgUsers,password:pgPassword,r:()=>pgReport(b,c)};
+    if(!R[a])throw new Error('الصفحة غير موجودة');await R[a]()}
+  catch(e){V.innerHTML=`<div class="card warnbox">${esc(e.message)}</div>`}}
+function pgHomeLite(){setTitle('الرئيسية');$('#view').innerHTML=`<div class="card"><h3>مرحباً ${esc(M.user.name)}</h3><p class="mut">اختر من القائمة.</p></div>`}
+
+/* ================= لوحة القيادة ================= */
+async function pgDash(){setTitle('لوحة القيادة');const d=await api('/api/reports/dashboard');const mx=Math.max(1,...d.monthly.map(x=>Math.max(x.rev,x.exp)));
+  $('#view').innerHTML=`<div class="kpis">
+   <div class="kpi dk"><small>النقد في الصناديق والمصارف</small><b>${iqd(d.cashTotal)} د.ع</b></div>
+   <div class="kpi"><small>ذمم الزبائن (مدينون)</small><b>${iqd(d.receivables)} د.ع</b></div>
+   <div class="kpi"><small>ذمم الموردين (دائنون)</small><b>${iqd(d.payables)} د.ع</b></div>
+   <div class="kpi"><small>قيمة المخزون</small><b>${iqd(d.inventory)} د.ع</b></div>
+   <div class="kpi"><small>إيرادات الشهر</small><b class="grn">${iqd(d.month.revenue)}</b></div>
+   <div class="kpi"><small>مصروفات الشهر</small><b class="red">${iqd(d.month.expense)}</b></div>
+   <div class="kpi"><small>صافي ربح الشهر</small><b>${iqd(d.month.net)}</b></div>
+   <div class="kpi"><small>صافي ربح السنة</small><b>${iqd(d.year.net)}</b></div></div>
+  <div class="row" style="align-items:stretch">
+   <div class="card" style="flex:2;min-width:300px"><h3>الإيرادات والمصروفات – آخر 12 شهراً <small class="mut">(<i style="background:var(--lime);display:inline-block;width:10px;height:10px"></i> إيرادات · <i style="background:#d98b7f;display:inline-block;width:10px;height:10px"></i> مصروفات)</small></h3>
+    <div class="bars">${d.monthly.map(x=>`<div class="m"><div class="bb"><i style="height:${x.rev/mx*140}px;background:var(--lime)" title="${iqd(x.rev)}"></i><i style="height:${x.exp/mx*140}px;background:#d98b7f" title="${iqd(x.exp)}"></i></div>${x.ym.slice(2)}</div>`).join('')||'<p class="mut">لا توجد بيانات بعد</p>'}</div></div>
+   <div class="card" style="flex:1;min-width:260px"><h3>الصناديق والمصارف</h3><table>${d.cash.map(c=>`<tr><td>${esc(c.name)}</td><td class="n">${c.usd!=null?num(c.usd,2)+' $':iqd(c.balance)}</td></tr>`).join('')}</table>
+    ${d.lowStock.length?`<h3 style="margin-top:14px" class="red">مواد وصلت الحد الأدنى</h3>${d.lowStock.map(x=>`<div>${esc(x.name)} — <b>${x.qty}</b> <span class="mut">(الحد ${x.min})</span></div>`).join('')}`:''}
+    ${d.quotesOpen?`<p style="margin-top:12px"><a href="#/quotes">${d.quotesOpen} عرض سعر مفتوح</a></p>`:''}</div></div>
+  <div class="card"><h3>آخر القيود</h3><table>${d.recent.map(j=>`<tr><td>${esc(j.no)}</td><td>${j.date}</td><td>${KIND[j.kind]||j.kind}</td><td>${esc(j.memo||'')}</td></tr>`).join('')||'<tr><td class="mut">لا توجد قيود بعد</td></tr>'}</table></div>
+  <div class="row">${P('sales')?'<a class="btn lime" href="#/invoice/new/sale">+ فاتورة بيع</a><a class="btn" href="#/quote/new">+ عرض سعر</a>':''}${P('gl')?'<a class="btn" href="#/voucher/new/receipt">+ سند قبض</a><a class="btn" href="#/voucher/new/payment">+ سند صرف</a>':''}${P('purchases')?'<a class="btn" href="#/invoice/new/purchase">+ فاتورة شراء</a>':''}</div>`}
+
+/* ================= محرر الأسطر ================= */
+function linesEditor(lines,opt){opt=opt||{};const L=(lines&&lines.length?lines:[{}]).map(l=>Object.assign({qty:1},l));
+  const html=`<div class="tw" style="max-height:none"><table class="lines" id="LT"><thead><tr><th style="width:26%">المادة</th><th>الوصف</th>${opt.account?'<th style="width:18%">الحساب (للخدمات)</th>':''}<th style="width:90px">الكمية</th><th style="width:130px">السعر</th><th style="width:130px" class="n">المجموع</th><th style="width:30px"></th></tr></thead><tbody></tbody></table></div>
+   <button class="btn sm" style="margin-top:6px" id="addL">+ سطر</button>`;
+  function row(l){const tr=document.createElement('tr');
+    tr.innerHTML=`<td><select class="li">${itemOpts(l.item_id)}</select></td><td><input class="ld" value="${esc(l.description||'')}"></td>${opt.account?`<td><select class="la"><option value="">تلقائي</option>${accOpts(l.account_code,opt.account)}</select></td>`:''}
+     <td><input class="lq" inputmode="decimal" dir="ltr" value="${l.qty||''}"></td><td><input class="lp" inputmode="decimal" dir="ltr" value="${l.unit_price!=null?l.unit_price:''}"></td><td class="n lt"></td><td><button class="del" title="حذف">×</button></td>`;
+    tr.querySelector('.li').onchange=e=>{const it=M.items.find(i=>i.id==e.target.value);if(it){if(!tr.querySelector('.ld').value)tr.querySelector('.ld').value=it.name;if(opt.price&&it.sale_price&&!tr.querySelector('.lp').value)tr.querySelector('.lp').value=it.sale_price}opt.onChange&&opt.onChange()};
+    tr.querySelector('.del').onclick=()=>{tr.remove();opt.onChange&&opt.onChange()};
+    tr.querySelectorAll('input').forEach(i=>i.oninput=()=>opt.onChange&&opt.onChange());return tr}
+  return {html,mount(){const tb=$('#LT tbody');L.forEach(l=>tb.appendChild(row(l)));$('#addL').onclick=()=>{tb.appendChild(row({qty:1}));opt.onChange&&opt.onChange()};opt.onChange&&opt.onChange()},
+    read(){return $$('#LT tbody tr').map(tr=>({item_id:tr.querySelector('.li').value||null,description:tr.querySelector('.ld').value,account_code:tr.querySelector('.la')?tr.querySelector('.la').value||null:null,qty:Number(tr.querySelector('.lq').value)||0,unit_price:Number(tr.querySelector('.lp').value)||0}))},
+    totals(){let s=0;$$('#LT tbody tr').forEach(tr=>{const t=(Number(tr.querySelector('.lq').value)||0)*(Number(tr.querySelector('.lp').value)||0);s+=t;tr.querySelector('.lt').textContent=num(t)});return s}}}
+
+/* ================= عروض الأسعار ================= */
+async function pgQuotes(){setTitle('عروض الأسعار');const rows=await api('/api/quotations');
+  $('#view').innerHTML=`<div class="toolbar"><a class="btn lime" href="#/quote/new">+ عرض سعر جديد</a><span class="sp"></span><button class="btn" onclick="tableCsv('عروض-الأسعار')">تصدير Excel</button></div>
+  <div class="card tw"><table><tr><th>الرقم</th><th>التاريخ</th><th>الزبون</th><th>المشروع</th><th class="n">المبلغ</th><th>الحالة</th></tr>
+  ${rows.map(q=>`<tr class="click" onclick="go('#/quote/${q.id}')"><td>${esc(q.no)}</td><td>${q.date}</td><td>${esc(q.party||q.customer_name||'')}</td><td>${esc(q.project||'')}</td><td class="n">${money(q.total,q.currency)}</td><td><span class="pill ${QS[q.status][1]}">${QS[q.status][0]}</span></td></tr>`).join('')||'<tr><td colspan=6 class="mut">لا توجد عروض</td></tr>'}</table></div>`}
+async function pgQuote(id){const q=id&&id!=='new'?await api('/api/quotations/'+id):{date:today(),currency:'IQD',lines:[],status:'draft',terms:set('quote_terms')};const locked=q.status==='invoiced';
+  setTitle(q.id?'عرض سعر '+q.no:'عرض سعر جديد');
+  const E=linesEditor(q.lines,{price:true,onChange:()=>{const s=E.totals(),d=Number($('#qD').value)||0;$('#qS').textContent=num(s);$('#qT').textContent=num(s-d)}});
+  $('#view').innerHTML=`<div class="card"><div class="row"><div class="f"><label>الزبون (من القائمة)</label><select id="qP">${partyOpts(q.party_id,['customer','both'])}</select></div><div class="f"><label>أو اسم زبون جديد</label><input id="qN" value="${esc(q.customer_name||'')}"></div><div class="f s"><label>الهاتف</label><input id="qPh" value="${esc(q.customer_phone||'')}" dir="ltr"></div></div>
+   <div class="row" style="margin-top:8px"><div class="f s"><label>التاريخ</label><input id="qDt" type="date" value="${q.date}"></div><div class="f s"><label>صالح لغاية</label><input id="qV" type="date" value="${q.valid_until||''}"></div><div class="f s"><label>العملة</label><select id="qC">${curOpts(q.currency)}</select></div><div class="f"><label>المشروع</label><select id="qPr">${projOpts(q.project_id)}</select></div><div class="f s"><label>الحالة</label><select id="qSt">${Object.entries(QS).filter(([k])=>k!=='invoiced'||q.status==='invoiced').map(([k,v])=>`<option value="${k}" ${q.status===k?'selected':''}>${v[0]}</option>`).join('')}</select></div></div></div>
+  <div class="card">${E.html}<div class="sum"><span>المجموع</span><b id="qS"></b><span>الخصم</span><input id="qD" dir="ltr" value="${q.discount||0}" style="width:160px"><span>الإجمالي</span><b id="qT"></b></div>
+   <div class="f" style="margin-top:10px"><label>الشروط والملاحظات (تظهر في الطباعة)</label><textarea id="qTr">${esc(q.terms||'')}</textarea></div></div>
+  <div class="row">${locked?'':'<button class="btn pri" id="qSave">حفظ</button>'}${q.id?`<button class="btn" onclick="printQuote(${q.id})">طباعة / PDF</button>`:''}${q.id&&!locked?`<button class="btn lime" id="qInv">تحويل إلى فاتورة بيع</button>`:''}${q.invoice_id?`<a class="btn" href="#/invoice/${q.invoice_id}">عرض الفاتورة</a>`:''}<a class="btn" href="#/quotes">رجوع</a></div>`;
+  E.mount();$('#qD').oninput=()=>{const s=E.totals();$('#qT').textContent=num(s-(Number($('#qD').value)||0))};
+  const body=()=>({id:q.id,party_id:$('#qP').value||null,customer_name:$('#qN').value,customer_phone:$('#qPh').value,date:$('#qDt').value,valid_until:$('#qV').value,currency:$('#qC').value,project_id:$('#qPr').value||null,status:$('#qSt').value,discount:Number($('#qD').value)||0,terms:$('#qTr').value,lines:E.read()});
+  if($('#qSave'))$('#qSave').onclick=async()=>{try{const r=await post('/api/quotations',body());toast('تم الحفظ');go('#/quote/'+r.id)}catch(e){toast(e.message)}};
+  if($('#qInv'))$('#qInv').onclick=async()=>{const b=body();if(!b.party_id)return toast('لتحويله إلى فاتورة: اختر الزبون من القائمة (أضفه من «الزبائن» إن كان جديداً)');try{await post('/api/quotations',Object.assign(b,{status:'accepted'}));LS.set('fromQuote',Object.assign(b,{quote_id:q.id}));go('#/invoice/new/sale')}catch(e){toast(e.message)}}}
+
+/* ================= الفواتير ================= */
+async function pgInvoices(t){setTitle(t==='sale'?'فواتير البيع':'فواتير الشراء');const f=LS.get('f_inv',{from:today().slice(0,4)+'-01-01',to:today()});
+  const rows=await api(`/api/invoices?type=${t}&from=${f.from}&to=${f.to}`);const live=rows.filter(r=>r.status==='posted');
+  $('#view').innerHTML=`<div class="toolbar"><a class="btn lime" href="#/invoice/new/${t}">+ فاتورة ${t==='sale'?'بيع':'شراء'} جديدة</a><div class="f s"><label>من</label><input type="date" id="fF" value="${f.from}"></div><div class="f s"><label>إلى</label><input type="date" id="fT" value="${f.to}"></div><button class="btn" id="fGo">عرض</button><span class="sp"></span><button class="btn" onclick="tableCsv('فواتير')">تصدير Excel</button></div>
+  <div class="card tw"><table><tr><th>الرقم</th><th>التاريخ</th><th>${t==='sale'?'الزبون':'المورد'}</th><th>المشروع</th><th class="n">المبلغ</th><th class="n">بالدينار</th><th>الحالة</th></tr>
+  ${rows.map(r=>`<tr class="click ${r.status==='void'?'void':''}" onclick="go('#/invoice/${r.id}')"><td>${esc(r.no)}</td><td>${r.date}</td><td>${esc(r.party)}</td><td>${esc(r.project||'')}</td><td class="n">${money(r.total,r.currency)}</td><td class="n">${iqd(r.total*r.rate)}</td><td>${st(r.status)}</td></tr>`).join('')||'<tr><td colspan=7 class="mut">لا توجد فواتير في هذه الفترة</td></tr>'}
+  <tr class="tot"><td colspan=5>المجموع (${live.length} فاتورة)</td><td class="n">${iqd(live.reduce((s,r)=>s+r.total*r.rate,0))}</td><td></td></tr></table></div>`;
+  $('#fGo').onclick=()=>{LS.set('f_inv',{from:$('#fF').value,to:$('#fT').value});route()}}
+function pgInvoiceForm(t){t=t==='purchase'?'purchase':'sale';const fq=t==='sale'?LS.get('fromQuote',null):null;LS.del('fromQuote');
+  const d=fq||{date:today(),currency:'IQD',lines:[]};setTitle(t==='sale'?'فاتورة بيع جديدة':'فاتورة شراء جديدة');
+  const E=linesEditor(d.lines,{price:t==='sale',account:a=>t==='sale'?a.type==='revenue':(a.type==='expense'||a.type==='asset'),onChange:()=>calc()});
+  $('#view').innerHTML=`<div class="card"><div class="row"><div class="f"><label>${t==='sale'?'الزبون':'المورد'} *</label><select id="iP">${partyOpts(d.party_id,t==='sale'?['customer','both']:['supplier','both'])}</select></div>
+   <div class="f s"><label>التاريخ</label><input id="iD" type="date" value="${d.date||today()}"></div><div class="f s"><label>الاستحقاق</label><input id="iDue" type="date"></div>
+   <div class="f s"><label>العملة</label><select id="iC">${curOpts(d.currency)}</select></div><div class="f s" id="rateBox"><label>سعر الصرف</label><input id="iR" dir="ltr" value="${set('usd_rate')}"></div></div>
+   <div class="row" style="margin-top:8px"><div class="f"><label>المشروع</label><select id="iPr">${projOpts(d.project_id)}</select></div><div class="f"><label>المخزن</label><select id="iW">${whOpts()}</select></div>${t==='purchase'?'<div class="f s"><label>رقم فاتورة المورد</label><input id="iSR"></div>':''}</div></div>
+  <div class="card">${E.html}
+   <div class="sum"><span>المجموع</span><b id="iS"></b><span>الخصم</span><input id="iDs" dir="ltr" value="${d.discount||0}" style="width:160px"><span>ضريبة / رسوم</span><input id="iTx" dir="ltr" value="0" style="width:160px"><span>الإجمالي</span><b id="iT"></b><span class="mut" id="iTI"></span><span></span></div>
+   <div class="f" style="margin-top:8px"><label>ملاحظات</label><input id="iN"></div>
+   <p class="mut" style="font-size:13px">المواد المخزنية تُخرج/تُدخل للمخزن تلقائياً بالكلفة المتوسطة، والسطر بلا مادة يُعامل كخدمة${t==='sale'?' (إيراد خدمات)':' (مصروف خدمي أو الحساب المختار)'}. القيد المحاسبي يُنشأ تلقائياً.</p></div>
+  <div class="row"><button class="btn pri" id="iSave">حفظ وترحيل</button><a class="btn" href="#/${t==='sale'?'sales':'purchases'}">إلغاء</a></div>`;
+  function calc(){const s=E.totals(),tot=s-(Number($('#iDs').value)||0)+(Number($('#iTx').value)||0),c=$('#iC').value;$('#iS').textContent=num(s);$('#iT').textContent=money(tot,c);$('#iTI').textContent=c==='USD'?'≈ '+iqd(tot*(Number($('#iR').value)||0))+' د.ع':'';$('#rateBox').style.visibility=c==='USD'?'visible':'hidden'}
+  E.mount();['#iDs','#iTx','#iR'].forEach(s=>$(s).oninput=calc);$('#iC').onchange=calc;
+  $('#iP').onchange=()=>{const p=M.parties.find(x=>x.id==$('#iP').value);if(p){$('#iC').value=p.currency||'IQD';calc()}};
+  $('#iSave').onclick=async()=>{const b={type:t,party_id:$('#iP').value,date:$('#iD').value,due_date:$('#iDue').value,currency:$('#iC').value,rate:$('#iR').value,project_id:$('#iPr').value||null,warehouse_id:$('#iW').value,supplier_ref:$('#iSR')?$('#iSR').value:null,discount:Number($('#iDs').value)||0,tax:Number($('#iTx').value)||0,notes:$('#iN').value,lines:E.read(),quote_id:d.quote_id||null};
+    $('#iSave').disabled=true;try{const r=await post('/api/invoices',b);toast('تم ترحيل الفاتورة');await loadMeta();go('#/invoice/'+r.id)}catch(e){$('#iSave').disabled=false;toast(e.message)}}}
+async function pgInvoiceView(id){const d=await api('/api/invoices/'+id);setTitle((d.type==='sale'?'فاتورة بيع ':'فاتورة شراء ')+d.no);
+  $('#view').innerHTML=`<div class="card"><div class="row" style="justify-content:space-between"><div><b style="font-size:18px">${esc(d.no)}</b> ${st(d.status)}<div class="mut">${d.date}${d.due_date?' · الاستحقاق '+d.due_date:''}</div></div><div style="text-align:left"><div class="mut">الإجمالي</div><b style="font-size:20px">${money(d.total,d.currency)}</b>${d.currency==='USD'?`<div class="mut">سعر الصرف ${num(d.rate)} = ${iqd(d.total*d.rate)} د.ع</div>`:''}</div></div>
+   <p>${d.type==='sale'?'الزبون':'المورد'}: <b>${esc(d.party)}</b>${d.project?' · المشروع: '+esc(d.project):''} · المخزن: ${esc(d.warehouse||'')}${d.supplier_ref?' · فاتورة المورد: '+esc(d.supplier_ref):''}</p>
+   <table><tr><th>#</th><th>البيان</th><th class="n">الكمية</th><th class="n">السعر</th><th class="n">المجموع</th><th>الحساب</th></tr>${d.lines.map((l,i)=>`<tr><td>${i+1}</td><td>${esc(l.description)}</td><td class="n">${num(l.qty)}</td><td class="n">${num(l.unit_price)}</td><td class="n">${num(l.total)}</td><td class="mut">${esc(accName(l.account_code))}</td></tr>`).join('')}
+   <tr class="tot"><td colspan=4>المجموع</td><td class="n">${num(d.subtotal)}</td><td></td></tr>${d.discount?`<tr><td colspan=4>الخصم</td><td class="n">${num(d.discount)}</td><td></td></tr>`:''}${d.tax?`<tr><td colspan=4>ضريبة</td><td class="n">${num(d.tax)}</td><td></td></tr>`:''}<tr class="tot"><td colspan=4>الإجمالي</td><td class="n">${money(d.total,d.currency)}</td><td></td></tr></table>
+   ${d.notes?`<p>ملاحظات: ${esc(d.notes)}</p>`:''}${d.status==='void'?`<p class="red">سبب الإلغاء: ${esc(d.void_reason||'')}</p>`:''}<p class="mut">المسدد بسندات مرتبطة: ${money(d.paid,d.currency)}</p></div>
+  <div class="row"><button class="btn" onclick="printInvoice(${d.id})">طباعة / PDF</button>${d.status==='posted'&&P('gl')?`<a class="btn lime" href="#/voucher/new/${d.type==='sale'?'receipt':'payment'}?inv=${d.id}">${d.type==='sale'?'قبض':'تسديد'} المبلغ</a>`:''}
+   ${d.journal_id&&P('gl')?`<a class="btn" href="#/journal/${d.journal_id}">القيد المحاسبي</a>`:''}${d.status==='posted'&&P('void')?'<button class="btn red" id="vd">إلغاء الفاتورة</button>':''}<a class="btn" href="#/${d.type==='sale'?'sales':'purchases'}">رجوع</a></div>`;
+  if($('#vd'))$('#vd').onclick=async()=>{const r=await ask('إلغاء الفاتورة '+d.no,'سبب الإلغاء (يُلغى القيد وتُعاد حركة المخزن)');if(!r)return;try{await post(`/api/invoices/${d.id}/void`,{reason:r});toast('أُلغيت الفاتورة');route()}catch(e){toast(e.message)}}}
+
+/* ================= السندات ================= */
+async function pgVouchers(t){t=t==='payment'?'payment':'receipt';setTitle(t==='receipt'?'سندات القبض':'سندات الصرف والمصاريف');const f=LS.get('f_v',{from:today().slice(0,7)+'-01',to:today()});
+  const rows=await api(`/api/vouchers?type=${t}&from=${f.from}&to=${f.to}`);const live=rows.filter(r=>r.status==='posted');
+  $('#view').innerHTML=`<div class="toolbar"><a class="btn lime" href="#/voucher/new/${t}">+ سند ${t==='receipt'?'قبض':'صرف'} جديد</a><div class="f s"><label>من</label><input type="date" id="fF" value="${f.from}"></div><div class="f s"><label>إلى</label><input type="date" id="fT" value="${f.to}"></div><button class="btn" id="fGo">عرض</button><span class="sp"></span><button class="btn" onclick="tableCsv('سندات')">تصدير Excel</button></div>
+  <div class="card tw"><table><tr><th>الرقم</th><th>التاريخ</th><th>${t==='receipt'?'من':'إلى'}</th><th>الحساب المقابل</th><th>الصندوق/المصرف</th><th>البيان</th><th class="n">المبلغ</th><th>الحالة</th></tr>
+  ${rows.map(r=>`<tr class="click ${r.status==='void'?'void':''}" onclick="go('#/voucher/${r.id}')"><td>${esc(r.no)}</td><td>${r.date}</td><td>${esc(r.party||r.payee||'')}</td><td>${esc(r.counter_name||'')}</td><td>${esc(r.cash_name||'')}</td><td>${esc(r.memo||'')}${r.project?' · '+esc(r.project):''}</td><td class="n">${money(r.amount,r.currency)}</td><td>${st(r.status)}</td></tr>`).join('')||'<tr><td colspan=8 class="mut">لا توجد سندات</td></tr>'}
+  <tr class="tot"><td colspan=6>المجموع بالدينار</td><td class="n">${iqd(live.reduce((s,r)=>s+r.amount*r.rate,0))}</td><td></td></tr></table></div>`;
+  $('#fGo').onclick=()=>{LS.set('f_v',{from:$('#fF').value,to:$('#fT').value});route()}}
+async function pgVoucherForm(t){const [tt,qs]=String(t||'').split('?');t=tt==='payment'?'payment':'receipt';const invId=new URLSearchParams(qs||'').get('inv');const inv=invId?await api('/api/invoices/'+invId):null;
+  setTitle(t==='receipt'?'سند قبض جديد':'سند صرف جديد');const cashF=a=>/^18/.test(a.code);
+  $('#view').innerHTML=`<div class="card"><div class="row"><div class="f s"><label>التاريخ</label><input id="vD" type="date" value="${today()}"></div><div class="f s"><label>العملة</label><select id="vC">${curOpts(inv?inv.currency:'IQD')}</select></div><div class="f s" id="rateBox"><label>سعر الصرف</label><input id="vR" dir="ltr" value="${inv&&inv.currency==='USD'?inv.rate:set('usd_rate')}"></div>
+    <div class="f s"><label>المبلغ *</label><input id="vA" dir="ltr" inputmode="decimal" value="${inv?Math.max(0,inv.total-inv.paid):''}"></div><div class="f"><label>${t==='receipt'?'إلى الصندوق / المصرف':'من الصندوق / المصرف'}</label><select id="vCash">${accOpts(null,cashF)}</select></div></div>
+   <div class="row" style="margin-top:8px"><div class="f"><label>${t==='receipt'?'استلمنا من (زبون/جهة)':'صُرف إلى (مورد/موظف/جهة)'}</label><select id="vP">${partyOpts(inv?inv.party_id:null)}</select></div>
+    <div class="f"><label>أو الحساب المقابل مباشرة (${t==='receipt'?'إيراد/حساب':'مصروف/حساب'})</label><select id="vAcc"><option value="">—</option>${accOpts(null,a=>!cashF(a)&&(t==='receipt'?true:true))}</select></div></div>
+   <div class="row" style="margin-top:8px"><div class="f"><label>المشروع / مركز الكلفة</label><select id="vPr">${projOpts(inv?inv.project_id:null)}</select></div><div class="f s"><label>طريقة الدفع</label><select id="vM"><option value="cash">نقداً</option><option value="cheque">صك</option><option value="transfer">حوالة مصرفية</option></select></div><div class="f s"><label>رقم الصك/الحوالة</label><input id="vCh"></div><div class="f"><label>اسم المستلم/الدافع (للطباعة)</label><input id="vPy"></div></div>
+   <div class="f" style="margin-top:8px"><label>البيان</label><input id="vMe" value="${inv?esc((t==='receipt'?'قبض عن ':'تسديد ')+'فاتورة '+inv.no):''}"></div><p class="mut" id="vW"></p></div>
+  <div class="row"><button class="btn pri" id="vSave">حفظ وترحيل</button><a class="btn" href="#/vouchers/${t}">إلغاء</a></div>`;
+  const upd=()=>{const c=$('#vC').value;$('#rateBox').style.visibility=c==='USD'?'visible':'hidden';$('#vCash').value=set(c==='USD'?'acc_cash_usd':'acc_cash_iqd');$('#vW').textContent=$('#vA').value?tafqeet($('#vA').value,c):''};
+  $('#vC').onchange=upd;$('#vA').oninput=()=>{$('#vW').textContent=$('#vA').value?tafqeet($('#vA').value,$('#vC').value):''};upd();
+  $('#vSave').onclick=async()=>{if($('#vP').value&&$('#vAcc').value)return toast('اختر الجهة أو الحساب المقابل — وليس الاثنين');
+    $('#vSave').disabled=true;try{const r=await post('/api/vouchers',{type:t,date:$('#vD').value,currency:$('#vC').value,rate:$('#vR').value,amount:Number($('#vA').value),cash_account:$('#vCash').value,party_id:$('#vP').value||null,counter_account:$('#vAcc').value||null,project_id:$('#vPr').value||null,method:$('#vM').value,cheque_no:$('#vCh').value,payee:$('#vPy').value,memo:$('#vMe').value,invoice_id:inv?inv.id:null});toast('تم ترحيل السند');go('#/voucher/'+r.id)}catch(e){$('#vSave').disabled=false;toast(e.message)}}}
+async function pgVoucherView(id){const v=await api('/api/vouchers/'+id);setTitle((v.type==='receipt'?'سند قبض ':'سند صرف ')+v.no);
+  $('#view').innerHTML=`<div class="card"><b style="font-size:18px">${esc(v.no)}</b> ${st(v.status)}<div class="mut">${v.date}</div>
+   <p style="font-size:22px;margin:10px 0"><b>${money(v.amount,v.currency)}</b></p><p>${esc(tafqeet(v.amount,v.currency))}</p>
+   <table><tr><td>${v.type==='receipt'?'استلمنا من':'صُرف إلى'}</td><td><b>${esc(v.party||v.payee||'')}</b></td></tr><tr><td>الحساب المقابل</td><td>${esc(accName(v.counter_account))}</td></tr><tr><td>الصندوق / المصرف</td><td>${esc(accName(v.cash_account))}</td></tr>
+   ${v.project?`<tr><td>المشروع</td><td>${esc(v.project)}</td></tr>`:''}<tr><td>الطريقة</td><td>${{cash:'نقداً',cheque:'صك',transfer:'حوالة'}[v.method]||''} ${esc(v.cheque_no||'')}</td></tr><tr><td>البيان</td><td>${esc(v.memo||'')}</td></tr>${v.currency==='USD'?`<tr><td>سعر الصرف</td><td>${num(v.rate)} (${iqd(v.amount*v.rate)} د.ع)</td></tr>`:''}</table>
+   ${v.status==='void'?`<p class="red">سبب الإلغاء: ${esc(v.void_reason||'')}</p>`:''}</div>
+  <div class="row"><button class="btn" onclick="printVoucher(${v.id})">طباعة / PDF</button>${v.journal_id?`<a class="btn" href="#/journal/${v.journal_id}">القيد</a>`:''}${v.status==='posted'&&P('void')?'<button class="btn red" id="vd">إلغاء السند</button>':''}<a class="btn" href="#/vouchers/${v.type}">رجوع</a></div>`;
+  if($('#vd'))$('#vd').onclick=async()=>{const r=await ask('إلغاء السند '+v.no,'سبب الإلغاء');if(!r)return;try{await post(`/api/vouchers/${v.id}/void`,{reason:r});toast('أُلغي السند');route()}catch(e){toast(e.message)}}}
+
+/* ================= القيود ================= */
+async function pgJournals(){setTitle('القيود اليومية');const f=LS.get('f_j',{from:today().slice(0,7)+'-01',to:today(),kind:''});
+  const rows=await api(`/api/journals?from=${f.from}&to=${f.to}${f.kind?'&kind='+f.kind:''}`);
+  $('#view').innerHTML=`<div class="toolbar"><a class="btn lime" href="#/journal/new">+ قيد يدوي</a><div class="f s"><label>من</label><input type="date" id="fF" value="${f.from}"></div><div class="f s"><label>إلى</label><input type="date" id="fT" value="${f.to}"></div><div class="f s"><label>النوع</label><select id="fK"><option value="">الكل</option>${Object.entries(KIND).map(([k,v])=>`<option value="${k}" ${f.kind===k?'selected':''}>${v}</option>`).join('')}</select></div><button class="btn" id="fGo">عرض</button><span class="sp"></span><button class="btn" onclick="tableCsv('القيود')">تصدير Excel</button></div>
+  <div class="card tw"><table><tr><th>رقم القيد</th><th>التاريخ</th><th>النوع</th><th>البيان</th><th class="n">المبلغ</th><th>بواسطة</th><th>الحالة</th></tr>${rows.map(j=>`<tr class="click ${j.status==='void'?'void':''}" onclick="go('#/journal/${j.id}')"><td>${esc(j.no)}</td><td>${j.date}</td><td>${KIND[j.kind]||j.kind}</td><td>${esc(j.memo||'')}</td><td class="n">${iqd(j.total)}</td><td>${esc(j.created_by)}</td><td>${st(j.status)}</td></tr>`).join('')||'<tr><td colspan=7 class="mut">لا توجد قيود</td></tr>'}</table></div>`;
+  $('#fGo').onclick=()=>{LS.set('f_j',{from:$('#fF').value,to:$('#fT').value,kind:$('#fK').value});route()}}
+function pgJournalForm(){setTitle('قيد يدوي جديد');
+  $('#view').innerHTML=`<div class="card"><div class="row"><div class="f s"><label>التاريخ</label><input id="jD" type="date" value="${today()}"></div><div class="f s"><label>النوع</label><select id="jK"><option value="manual">قيد يدوي</option><option value="opening">قيد افتتاحي</option></select></div><div class="f s"><label>العملة</label><select id="jC">${curOpts('IQD')}</select></div><div class="f s" id="rateBox" style="visibility:hidden"><label>سعر الصرف</label><input id="jR" dir="ltr" value="${set('usd_rate')}"></div><div class="f"><label>البيان</label><input id="jM"></div></div></div>
+  <div class="card"><div class="tw" style="max-height:none"><table class="lines" id="JT"><thead><tr><th style="width:30%">الحساب</th><th class="n" style="width:130px">مدين</th><th class="n" style="width:130px">دائن</th><th>الجهة</th><th>المشروع</th><th>شرح</th><th></th></tr></thead><tbody></tbody></table></div>
+   <button class="btn sm" id="jAdd" style="margin-top:6px">+ سطر</button><div class="sum"><span>مجموع المدين</span><b id="jTD"></b><span>مجموع الدائن</span><b id="jTC"></b><span>الفرق</span><b id="jDf"></b></div></div>
+  <div class="row"><button class="btn pri" id="jSave">حفظ وترحيل</button><a class="btn" href="#/journals">إلغاء</a></div>`;
+  const tb=$('#JT tbody');const calc=()=>{let d=0,c=0;$$('#JT tbody tr').forEach(r=>{d+=Number(r.querySelector('.jd').value)||0;c+=Number(r.querySelector('.jc').value)||0});$('#jTD').textContent=num(d);$('#jTC').textContent=num(c);$('#jDf').textContent=num(d-c);$('#jDf').className=Math.abs(d-c)>0.009?'red':'grn'};
+  const add=()=>{const tr=document.createElement('tr');tr.innerHTML=`<td><select class="ja"><option value="">—</option>${accOpts()}</select></td><td><input class="jd" dir="ltr" inputmode="decimal"></td><td><input class="jc" dir="ltr" inputmode="decimal"></td><td><select class="jp">${partyOpts()}</select></td><td><select class="jpr">${projOpts()}</select></td><td><input class="jm"></td><td><button class="del">×</button></td>`;
+    tr.querySelector('.del').onclick=()=>{tr.remove();calc()};tr.querySelectorAll('input').forEach(i=>i.oninput=calc);tb.appendChild(tr)};add();add();$('#jAdd').onclick=add;calc();
+  $('#jC').onchange=()=>$('#rateBox').style.visibility=$('#jC').value==='USD'?'visible':'hidden';
+  $('#jSave').onclick=async()=>{const lines=$$('#JT tbody tr').map(r=>({account:r.querySelector('.ja').value,debit:Number(r.querySelector('.jd').value)||0,credit:Number(r.querySelector('.jc').value)||0,party_id:r.querySelector('.jp').value||null,project_id:r.querySelector('.jpr').value||null,memo:r.querySelector('.jm').value})).filter(l=>l.account);
+    try{const r=await post('/api/journals',{date:$('#jD').value,kind:$('#jK').value,currency:$('#jC').value,rate:$('#jR').value,memo:$('#jM').value,lines});toast('تم ترحيل القيد');go('#/journal/'+r.id)}catch(e){toast(e.message)}}}
+async function pgJournalView(id){const j=await api('/api/journals/'+id);setTitle('القيد '+j.no);const td=j.lines.reduce((s,l)=>s+l.debit,0),tc=j.lines.reduce((s,l)=>s+l.credit,0);
+  const ref=j.ref_type==='invoice'?`#/invoice/${j.ref_id}`:j.ref_type==='voucher'?`#/voucher/${j.ref_id}`:j.ref_type==='stock'?`#/stockdoc/${j.ref_id}`:'';
+  $('#view').innerHTML=`<div class="card"><b style="font-size:18px">${esc(j.no)}</b> ${st(j.status)} <span class="pill">${KIND[j.kind]||j.kind}</span><div class="mut">${j.date} · ${esc(j.memo||'')} · بواسطة ${esc(j.created_by)}</div>
+   <div class="tw" style="margin-top:10px"><table><tr><th>الحساب</th><th>الجهة</th><th>المشروع</th><th>الشرح</th><th class="n">مدين</th><th class="n">دائن</th><th class="n">بالعملة الأصلية</th></tr>
+   ${j.lines.map(l=>`<tr><td>${esc(l.account_code)} – ${esc(l.account_name)}</td><td>${esc(l.party||'')}</td><td>${esc(l.project||'')}</td><td>${esc(l.memo||'')}</td><td class="n">${l.debit?iqd(l.debit):''}</td><td class="n">${l.credit?iqd(l.credit):''}</td><td class="n mut">${l.currency==='USD'?num(l.fc_debit||l.fc_credit,2)+' $ @'+num(l.rate):''}</td></tr>`).join('')}
+   <tr class="tot"><td colspan=4>المجموع</td><td class="n">${iqd(td)}</td><td class="n">${iqd(tc)}</td><td></td></tr></table></div>${j.status==='void'?`<p class="red">ملغى: ${esc(j.void_reason||'')}</p>`:''}</div>
+  <div class="row">${ref?`<a class="btn" href="${ref}">المستند الأصلي</a>`:''}${j.status==='posted'&&['manual','opening'].includes(j.kind)&&P('void')?'<button class="btn red" id="vd">إلغاء القيد</button>':''}<a class="btn" href="#/journals">رجوع</a></div>`;
+  if($('#vd'))$('#vd').onclick=async()=>{const r=await ask('إلغاء القيد '+j.no,'السبب');if(!r)return;try{await post(`/api/journals/${j.id}/void`,{reason:r});route()}catch(e){toast(e.message)}}}
+
+/* ================= الجهات ================= */
+async function pgParties(kind){kind=PK[kind]?kind:'customer';setTitle({customer:'الزبائن',supplier:'الموردون',employee:'الموظفون والعهد',other:'جهات أخرى'}[kind]);
+  let bal={};try{if(P('reports.sales')){const r=await api('/api/reports/parties?kind='+kind);r.rows.forEach(x=>bal[x.id]=x)}}catch(_){}
+  const list=M.parties.filter(p=>p.kind===kind||(p.kind==='both'&&(kind==='customer'||kind==='supplier')));
+  $('#view').innerHTML=`<div class="toolbar"><button class="btn lime" onclick="partyForm(null,'${kind}')">+ إضافة</button><div class="f"><label>بحث</label><input id="pq" placeholder="الاسم أو الهاتف"></div><span class="sp"></span><button class="btn" onclick="tableCsv('${kind}')">تصدير Excel</button></div>
+  <div class="card tw"><table id="PT"><tr><th>الاسم</th><th>الهاتف</th><th>العملة</th><th class="n">الرصيد (د.ع)</th><th class="n">رصيد بالدولار</th><th>الحالة</th><th></th></tr>
+  ${list.map(p=>{const b=bal[p.id]||{};return `<tr><td><b>${esc(p.name)}</b><div class="mut" style="font-size:12px">${esc(p.address||'')}</div></td><td dir="ltr" style="text-align:right">${esc(p.phone||'')}</td><td>${p.currency==='USD'?'دولار':'دينار'}</td><td class="n ${b.bal<0?'red':''}">${b.bal!=null?iqd(b.bal):''}</td><td class="n">${b.usd?num(b.usd,2):''}</td><td>${p.active?'':'<span class="pill bad">معطّل</span>'}</td><td><button class="btn sm" onclick="partyForm(${p.id})">تعديل</button> ${P('reports.sales')?`<a class="btn sm" href="#/r/statement/${p.id}">كشف حساب</a>`:''}</td></tr>`}).join('')||'<tr><td colspan=7 class="mut">لا توجد بيانات</td></tr>'}</table></div>`;
+  $('#pq').oninput=e=>{const q=e.target.value.trim();$$('#PT tr').slice(1).forEach(r=>r.style.display=!q||r.innerText.includes(q)?'':'none')}}
+window.partyForm=(id,kind)=>{const p=id?M.parties.find(x=>x.id===id):{kind,currency:'IQD',active:1};
+  dlg(`<h3>${id?'تعديل':'إضافة'}</h3><div class="row"><div class="f"><label>الاسم *</label><input id="p_n" value="${esc(p.name||'')}"></div><div class="f s"><label>النوع</label><select id="p_k">${Object.entries(PK).map(([k,v])=>`<option value="${k}" ${p.kind===k?'selected':''}>${v}</option>`).join('')}</select></div></div>
+  <div class="row" style="margin-top:8px"><div class="f"><label>الهاتف</label><input id="p_ph" dir="ltr" value="${esc(p.phone||'')}"></div><div class="f s"><label>عملة التعامل</label><select id="p_c">${curOpts(p.currency)}</select></div></div>
+  <div class="f" style="margin-top:8px"><label>العنوان</label><input id="p_a" value="${esc(p.address||'')}"></div>
+  <div class="row" style="margin-top:8px"><div class="f"><label>حساب الأستاذ (اختياري — الافتراضي حسب النوع)</label><select id="p_ac"><option value="">تلقائي</option>${accOpts(p.account_code,a=>a.type==='asset'||a.type==='liability')}</select></div><div class="f s"><label>سقف الائتمان</label><input id="p_cl" dir="ltr" value="${p.credit_limit||''}"></div></div>
+  <div class="f" style="margin-top:8px"><label>ملاحظات</label><input id="p_no" value="${esc(p.notes||'')}"></div><label style="display:block;margin-top:8px"><input type="checkbox" id="p_act" ${p.active?'checked':''} style="width:auto"> فعّال</label>
+  <div class="row" style="margin-top:12px"><button class="btn pri" id="p_s">حفظ</button><button class="btn" onclick="closeDlg()">إلغاء</button></div>`);
+  $('#p_s').onclick=async()=>{try{await post('/api/parties',{id:p.id,name:$('#p_n').value,kind:$('#p_k').value,phone:$('#p_ph').value,currency:$('#p_c').value,address:$('#p_a').value,account_code:$('#p_ac').value||null,credit_limit:$('#p_cl').value||null,notes:$('#p_no').value,active:$('#p_act').checked});closeDlg();await loadMeta();toast('تم الحفظ');route()}catch(e){toast(e.message)}}};
+
+/* ================= المواد والمخازن ================= */
+async function pgItems(){setTitle('المواد');let lv={};try{if(P('reports.store'))(await api('/api/reports/inventory')).rows.forEach(r=>lv[r.id]=r)}catch(_){}
+  $('#view').innerHTML=`<div class="toolbar"><button class="btn lime" onclick="itemForm()">+ مادة جديدة</button><div class="f"><label>بحث</label><input id="iq"></div><span class="sp"></span><button class="btn" onclick="tableCsv('المواد')">تصدير Excel</button></div>
+  <div class="card tw"><table id="IT"><tr><th>الرمز</th><th>المادة</th><th>الوحدة</th><th>الفئة</th><th>النوع</th><th class="n">الرصيد</th><th class="n">متوسط الكلفة</th><th class="n">سعر البيع</th><th></th></tr>
+  ${M.items.map(i=>{const l=lv[i.id]||{};return `<tr><td>${esc(i.code||'')}</td><td><b>${esc(i.name)}</b>${i.active?'':' <span class="pill bad">معطّل</span>'}</td><td>${esc(i.unit||'')}</td><td>${esc(i.category||'')}</td><td>${i.stock?'مخزنية':'<span class="pill blue">خدمة</span>'}</td><td class="n ${l.low?'red':''}">${i.stock&&l.qty!=null?num(l.qty):''}</td><td class="n">${l.avg?iqd(l.avg):''}</td><td class="n">${i.sale_price?money(i.sale_price,i.sale_currency):''}</td><td><button class="btn sm" onclick="itemForm(${i.id})">تعديل</button> ${i.stock&&P('reports.store')?`<a class="btn sm" href="#/r/itemcard/${i.id}">بطاقة المادة</a>`:''}</td></tr>`}).join('')||'<tr><td colspan=9 class="mut">لا توجد مواد</td></tr>'}</table></div>`;
+  $('#iq').oninput=e=>{const q=e.target.value.trim();$$('#IT tr').slice(1).forEach(r=>r.style.display=!q||r.innerText.includes(q)?'':'none')}}
+window.itemForm=id=>{const i=id?M.items.find(x=>x.id===id):{stock:1,active:1,unit:'قطعة',sale_currency:'IQD'};
+  dlg(`<h3>${id?'تعديل مادة':'مادة جديدة'}</h3><div class="row"><div class="f s"><label>الرمز</label><input id="i_c" value="${esc(i.code||'')}" dir="ltr"></div><div class="f"><label>الاسم *</label><input id="i_n" value="${esc(i.name||'')}"></div></div>
+  <div class="row" style="margin-top:8px"><div class="f s"><label>الوحدة</label><input id="i_u" value="${esc(i.unit||'')}"></div><div class="f"><label>الفئة</label><input id="i_cat" list="cats" value="${esc(i.category||'')}"><datalist id="cats">${['ألواح شمسية','انفرترات','بطاريات','هياكل','كيبلات','قواطع وحمايات','ملحقات','خدمات'].map(c=>`<option value="${c}">`).join('')}</datalist></div><div class="f s"><label>النوع</label><select id="i_s"><option value="1" ${i.stock?'selected':''}>مادة مخزنية</option><option value="0" ${!i.stock?'selected':''}>خدمة (بلا مخزون)</option></select></div></div>
+  <div class="row" style="margin-top:8px"><div class="f"><label>حساب المخزون</label><select id="i_ia"><option value="">الافتراضي</option>${accOpts(i.inv_account,a=>/^13/.test(a.code))}</select></div><div class="f"><label>حساب الإيراد</label><select id="i_ra"><option value="">الافتراضي</option>${accOpts(i.revenue_account,a=>a.type==='revenue')}</select></div></div>
+  <div class="row" style="margin-top:8px"><div class="f s"><label>سعر البيع</label><input id="i_p" dir="ltr" value="${i.sale_price||''}"></div><div class="f s"><label>عملة السعر</label><select id="i_pc">${curOpts(i.sale_currency)}</select></div><div class="f s"><label>الحد الأدنى للتنبيه</label><input id="i_m" dir="ltr" value="${i.min_qty==null?'':i.min_qty}"></div></div>
+  <label style="display:block;margin-top:8px"><input type="checkbox" id="i_a" ${i.active?'checked':''} style="width:auto"> فعّالة</label>
+  <div class="row" style="margin-top:12px"><button class="btn pri" id="i_sv">حفظ</button><button class="btn" onclick="closeDlg()">إلغاء</button></div>`);
+  $('#i_sv').onclick=async()=>{try{await post('/api/items',{id:i.id,code:$('#i_c').value,name:$('#i_n').value,unit:$('#i_u').value,category:$('#i_cat').value,stock:$('#i_s').value==='1',inv_account:$('#i_ia').value||null,revenue_account:$('#i_ra').value||null,sale_price:$('#i_p').value||null,sale_currency:$('#i_pc').value,min_qty:$('#i_m').value===''?null:Number($('#i_m').value),active:$('#i_a').checked});closeDlg();await loadMeta();toast('تم الحفظ');route()}catch(e){toast(e.message)}}};
+async function pgStock(){setTitle('حركات المخزن');const rows=await api('/api/stock');
+  $('#view').innerHTML=`<div class="toolbar">${Object.entries(STK).map(([k,v])=>`<a class="btn ${k==='issue'?'lime':''}" href="#/stockdoc/new/${k}">+ ${v}</a>`).join('')}</div>
+  <div class="card tw"><table><tr><th>الرقم</th><th>التاريخ</th><th>النوع</th><th>المخزن</th><th>المشروع / إلى</th><th>البيان</th><th>الحالة</th></tr>${rows.map(d=>`<tr class="click ${d.status==='void'?'void':''}" onclick="go('#/stockdoc/${d.id}')"><td>${esc(d.no)}</td><td>${d.date}</td><td>${STK[d.type]}</td><td>${esc(d.warehouse||'')}</td><td>${esc(d.project||d.to_warehouse||'')}</td><td>${esc(d.memo||'')}</td><td>${st(d.status)}</td></tr>`).join('')||'<tr><td colspan=7 class="mut">لا توجد حركات</td></tr>'}</table></div>
+  <p class="mut">المشتريات والمبيعات تُدخل وتُخرج المخزون تلقائياً من فواتيرها. هنا: الأرصدة الافتتاحية، صرف المواد للمشاريع، الإرجاع، تسويات الجرد، والتحويل بين المخازن.</p>`}
+function pgStockForm(type){type=STK[type]?type:'issue';setTitle(STK[type]);
+  $('#view').innerHTML=`<div class="card"><div class="row"><div class="f s"><label>التاريخ</label><input id="sD" type="date" value="${today()}"></div><div class="f"><label>${type==='transfer'?'من المخزن':'المخزن'}</label><select id="sW">${whOpts()}</select></div>
+   ${type==='transfer'?`<div class="f"><label>إلى المخزن</label><select id="sTo">${whOpts()}</select></div>`:''}${type==='issue'||type==='return'?`<div class="f"><label>المشروع *</label><select id="sP">${projOpts()}</select></div>`:''}<div class="f"><label>البيان</label><input id="sM"></div></div></div>
+  <div class="card"><table class="lines" id="ST"><thead><tr><th style="width:40%">المادة</th><th style="width:130px">${type==='adjust'?'الفرق (+ زيادة / − عجز)':'الكمية'}</th>${type==='opening'?'<th style="width:150px">كلفة الوحدة (د.ع)</th>':''}<th class="n">المتوفر</th><th></th></tr></thead><tbody></tbody></table><button class="btn sm" id="sAdd" style="margin-top:6px">+ مادة</button></div>
+  <div class="row"><button class="btn pri" id="sSave">حفظ وترحيل</button><a class="btn" href="#/stock">إلغاء</a></div>`;
+  const add=()=>{const tr=document.createElement('tr');tr.innerHTML=`<td><select class="si">${itemOpts(null,true)}</select></td><td><input class="sq" dir="ltr" inputmode="decimal"></td>${type==='opening'?'<td><input class="sc" dir="ltr" inputmode="decimal"></td>':''}<td class="n sa mut"></td><td><button class="del">×</button></td>`;
+    tr.querySelector('.del').onclick=()=>tr.remove();tr.querySelector('.si').onchange=async e=>{if(!e.target.value)return;try{const l=await api(`/api/stock-level?item_id=${e.target.value}&warehouse_id=${$('#sW').value}`);tr.querySelector('.sa').textContent=num(l.qty)+' · كلفة '+iqd(l.avg)}catch(_){}};$('#ST tbody').appendChild(tr)};add();$('#sAdd').onclick=add;
+  $('#sSave').onclick=async()=>{const lines=$$('#ST tbody tr').map(r=>({item_id:r.querySelector('.si').value,qty:Number(r.querySelector('.sq').value)||0,unit_cost:r.querySelector('.sc')?Number(r.querySelector('.sc').value)||0:0})).filter(l=>l.item_id);
+    try{const r=await post('/api/stock',{type,date:$('#sD').value,warehouse_id:$('#sW').value,to_warehouse_id:$('#sTo')?$('#sTo').value:null,project_id:$('#sP')?$('#sP').value:null,memo:$('#sM').value,lines});toast('تم الترحيل');go('#/stockdoc/'+r.id)}catch(e){toast(e.message)}}}
+async function pgStockView(id){const d=await api('/api/stock/'+id);setTitle(STK[d.type]+' '+d.no);
+  $('#view').innerHTML=`<div class="card"><b style="font-size:18px">${esc(d.no)}</b> ${st(d.status)} <span class="pill">${STK[d.type]}</span><div class="mut">${d.date} · ${esc(d.warehouse||'')}${d.to_warehouse?' ← '+esc(d.to_warehouse):''}${d.project?' · المشروع: '+esc(d.project):''} · ${esc(d.memo||'')}</div>
+   <table style="margin-top:10px"><tr><th>المادة</th><th class="n">الكمية</th><th class="n">كلفة الوحدة</th><th class="n">القيمة</th></tr>${d.lines.filter(l=>!(d.type==='transfer'&&l.qty>0)).map(l=>`<tr><td>${esc(l.item)}</td><td class="n">${num(Math.abs(l.qty))} ${esc(l.unit||'')}</td><td class="n">${iqd(l.unit_cost)}</td><td class="n">${iqd(Math.abs(l.qty*l.unit_cost))}</td></tr>`).join('')}</table>${d.status==='void'?`<p class="red">ملغى: ${esc(d.void_reason||'')}</p>`:''}</div>
+  <div class="row"><button class="btn" onclick="printStock(${d.id})">طباعة</button>${d.journal_id&&P('gl')?`<a class="btn" href="#/journal/${d.journal_id}">القيد</a>`:''}${d.status==='posted'&&P('void')?'<button class="btn red" id="vd">إلغاء</button>':''}<a class="btn" href="#/stock">رجوع</a></div>`;
+  if($('#vd'))$('#vd').onclick=async()=>{const r=await ask('إلغاء '+d.no,'السبب');if(!r)return;try{await post(`/api/stock/${d.id}/void`,{reason:r});route()}catch(e){toast(e.message)}}}
+function pgWarehouses(){setTitle('المخازن');$('#view').innerHTML=`<div class="toolbar"><button class="btn lime" onclick="whForm()">+ مخزن</button></div><div class="card"><table><tr><th>المخزن</th><th>ملاحظات</th><th></th></tr>${M.warehouses.map(w=>`<tr><td>${esc(w.name)}${w.active?'':' <span class="pill bad">معطّل</span>'}</td><td>${esc(w.notes||'')}</td><td><button class="btn sm" onclick="whForm(${w.id})">تعديل</button></td></tr>`).join('')}</table></div>`}
+window.whForm=id=>{const w=id?M.warehouses.find(x=>x.id===id):{active:1};dlg(`<h3>مخزن</h3><div class="f"><label>الاسم</label><input id="w_n" value="${esc(w.name||'')}"></div><div class="f" style="margin-top:8px"><label>ملاحظات</label><input id="w_no" value="${esc(w.notes||'')}"></div><label style="display:block;margin-top:8px"><input type="checkbox" id="w_a" ${w.active?'checked':''} style="width:auto"> فعّال</label><div class="row" style="margin-top:12px"><button class="btn pri" id="w_s">حفظ</button></div>`);
+  $('#w_s').onclick=async()=>{try{await post('/api/warehouses',{id:w.id,name:$('#w_n').value,notes:$('#w_no').value,active:$('#w_a').checked});closeDlg();await loadMeta();route()}catch(e){toast(e.message)}}};
+
+/* ================= المشاريع ================= */
+function pgProjects(){setTitle('المشاريع ومراكز الكلفة');const PS={active:'قيد التنفيذ',done:'منجز',hold:'متوقف',cancelled:'ملغى'};
+  $('#view').innerHTML=`<div class="toolbar"><button class="btn lime" onclick="projForm()">+ مشروع</button><span class="sp"></span>${P('reports.sales')?'<a class="btn" href="#/r/projects">تكاليف وأرباح المشاريع</a>':''}</div>
+  <div class="card tw"><table><tr><th>الرمز</th><th>المشروع</th><th>الزبون</th><th>القدرة</th><th>الموقع</th><th class="n">قيمة العقد</th><th>الحالة</th><th></th></tr>${M.projects.map(p=>`<tr><td>${esc(p.code)}</td><td><b>${esc(p.name)}</b></td><td>${esc(p.customer||'')}</td><td>${esc(p.capacity||'')}</td><td>${esc(p.location||'')}</td><td class="n">${p.contract_value?money(p.contract_value,p.currency):''}</td><td>${PS[p.status]||p.status}</td><td><button class="btn sm" onclick="projForm(${p.id})">تعديل</button> ${P('reports')?`<a class="btn sm" href="#/r/income?project_id=${p.id}">أرباحه</a>`:''}</td></tr>`).join('')||'<tr><td colspan=8 class="mut">لا توجد مشاريع</td></tr>'}</table></div>`;
+  window.projForm=id=>{const p=id?M.projects.find(x=>x.id===id):{status:'active',currency:'IQD',active:1};
+    dlg(`<h3>${id?'تعديل مشروع':'مشروع جديد'}</h3><div class="row"><div class="f s"><label>الرمز (تلقائي إن تُرك)</label><input id="j_c" value="${esc(p.code||'')}" dir="ltr"></div><div class="f"><label>اسم المشروع *</label><input id="j_n" value="${esc(p.name||'')}"></div></div>
+    <div class="row" style="margin-top:8px"><div class="f"><label>الزبون</label><select id="j_cu">${partyOpts(p.customer_id,['customer','both'])}</select></div><div class="f s"><label>قدرة المنظومة</label><input id="j_cap" value="${esc(p.capacity||'')}" placeholder="10 كيلوواط"></div></div>
+    <div class="row" style="margin-top:8px"><div class="f"><label>الموقع</label><input id="j_l" value="${esc(p.location||'')}"></div><div class="f s"><label>قيمة العقد</label><input id="j_v" dir="ltr" value="${p.contract_value||''}"></div><div class="f s"><label>العملة</label><select id="j_cur">${curOpts(p.currency)}</select></div></div>
+    <div class="row" style="margin-top:8px"><div class="f s"><label>البداية</label><input type="date" id="j_s" value="${p.start_date||''}"></div><div class="f s"><label>النهاية</label><input type="date" id="j_e" value="${p.end_date||''}"></div><div class="f s"><label>الحالة</label><select id="j_st">${Object.entries(PS).map(([k,v])=>`<option value="${k}" ${p.status===k?'selected':''}>${v}</option>`).join('')}</select></div><div class="f s"><label>مرجع ERP</label><input id="j_r" dir="ltr" value="${esc(p.erp_ref||'')}" placeholder="FP-2026-0001"></div></div>
+    <div class="f" style="margin-top:8px"><label>ملاحظات</label><input id="j_no" value="${esc(p.notes||'')}"></div><div class="row" style="margin-top:12px"><button class="btn pri" id="j_sv">حفظ</button><button class="btn" onclick="closeDlg()">إلغاء</button></div>`);
+    $('#j_sv').onclick=async()=>{try{await post('/api/projects',{id:p.id,code:$('#j_c').value,name:$('#j_n').value,customer_id:$('#j_cu').value||null,capacity:$('#j_cap').value,location:$('#j_l').value,contract_value:$('#j_v').value||null,currency:$('#j_cur').value,start_date:$('#j_s').value,end_date:$('#j_e').value,status:$('#j_st').value,erp_ref:$('#j_r').value,notes:$('#j_no').value});closeDlg();await loadMeta();route()}catch(e){toast(e.message)}}}}
+
+/* ================= دليل الحسابات ================= */
+function pgAccounts(){setTitle('دليل الحسابات');const T={asset:'موجودات',liability:'مطلوبات',equity:'حقوق ملكية',expense:'مصروفات',revenue:'إيرادات'};
+  $('#view').innerHTML=`<div class="toolbar"><button class="btn lime" onclick="accForm()">+ حساب</button><div class="f"><label>بحث</label><input id="aq"></div><span class="sp"></span><button class="btn" onclick="tableCsv('دليل-الحسابات')">تصدير Excel</button></div>
+  <p class="mut">مبني على هيكل النظام المحاسبي الموحد العراقي. الحسابات التجميعية (بخط عريض) لا يُقيَّد عليها مباشرة؛ أضف تحتها حسابات تفصيلية.</p>
+  <div class="card tw"><table class="tree" id="AT"><tr><th>الرمز</th><th>اسم الحساب</th><th>النوع</th><th></th></tr>${M.accounts.map(a=>`<tr class="${a.is_group?'g':''}"><td style="padding-right:${8+(a.code.length-1)*16}px">${a.code}</td><td>${esc(a.name)}${a.active?'':' <span class="pill bad">معطّل</span>'}</td><td>${T[a.type]}</td><td><button class="btn sm" onclick="accForm('${a.code}')">تعديل</button> ${a.is_group?`<button class="btn sm" onclick="accForm(null,'${a.code}')">+ فرعي</button>`:P('reports')?`<a class="btn sm" href="#/r/ledger/${a.code}">كشف</a>`:''}</td></tr>`).join('')}</table></div>`;
+  $('#aq').oninput=e=>{const q=e.target.value.trim();$$('#AT tr').slice(1).forEach(r=>r.style.display=!q||r.innerText.includes(q)?'':'none')};
+  window.accForm=(code,parent)=>{const a=code?acc(code):{parent:parent||'',type:parent?acc(parent).type:'expense',active:1};const kids=parent?M.accounts.filter(x=>x.parent===parent).map(x=>x.code).sort():[];
+    const sug=parent?(kids.length?String(Number(kids[kids.length-1])+1):parent+'1'):'';
+    dlg(`<h3>${code?'تعديل حساب':'حساب جديد'}</h3><div class="row"><div class="f s"><label>الرمز</label><input id="a_c" dir="ltr" value="${esc(code||sug)}" ${code?'disabled':''}></div><div class="f"><label>الاسم</label><input id="a_n" value="${esc(a.name||'')}"></div></div>
+    <div class="row" style="margin-top:8px"><div class="f"><label>الحساب الأب</label><select id="a_p" ${code?'disabled':''}><option value="">— حساب رئيسي —</option>${accOpts(a.parent,null,true)}</select></div><div class="f s"><label>النوع</label><select id="a_t">${Object.entries(T).map(([k,v])=>`<option value="${k}" ${a.type===k?'selected':''}>${v}</option>`).join('')}</select></div></div>
+    <div class="chk" style="margin-top:8px"><label><input type="checkbox" id="a_g" ${a.is_group?'checked':''} style="width:auto"> حساب تجميعي</label><label><input type="checkbox" id="a_a" ${a.active?'checked':''} style="width:auto"> فعّال</label></div>
+    <div class="row" style="margin-top:12px"><button class="btn pri" id="a_s">حفظ</button><button class="btn" onclick="closeDlg()">إلغاء</button></div>`);
+    $('#a_s').onclick=async()=>{try{await post('/api/accounts',{code:$('#a_c').value,name:$('#a_n').value,parent:$('#a_p').value,type:$('#a_t').value,is_group:$('#a_g').checked?1:0,active:$('#a_a').checked});closeDlg();await loadMeta();route()}catch(e){toast(e.message)}}}}
+
+/* ================= التقارير ================= */
+function rangeBar(def,extra){const f=Object.assign({},def,LS.get('rng',{}));return {f,html:`<div class="toolbar">${def.from!==undefined?`<div class="f s"><label>من</label><input type="date" id="rF" value="${f.from}"></div>`:''}<div class="f s"><label>${def.from!==undefined?'إلى':'حتى تاريخ'}</label><input type="date" id="rT" value="${f.to}"></div>${extra||''}<button class="btn pri" id="rGo">عرض</button><span class="sp"></span><button class="btn" onclick="printView()">طباعة</button><button class="btn" onclick="tableCsv(document.title)">تصدير Excel</button></div>`}}
+function bindRange(cb){$('#rGo').onclick=()=>{const v={to:$('#rT').value};if($('#rF'))v.from=$('#rF').value;LS.set('rng',Object.assign(LS.get('rng',{}),v));cb()}}
+window.printView=()=>{const r=$('#R')||$('#view');doPrint(letterhead($('#title').textContent,'—',today())+r.innerHTML)};
+async function pgReport(name,arg){const y0=today().slice(0,4)+'-01-01',T=today();const V=$('#view');
+  const [nm,qs]=String(name).split('?');const qp=new URLSearchParams(qs||(location.hash.split('?')[1]||''));
+  if(nm==='trial'){setTitle('ميزان المراجعة');const {f,html}=rangeBar({from:y0,to:T},`<div class="f s"><label>المستوى</label><select id="rL"><option value="0">كل المستويات</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>`);V.innerHTML=html+'<div id="R"></div>';
+    const load=async()=>{const L=$('#rL').value;const d=await api(`/api/reports/trial?from=${$('#rF').value}&to=${$('#rT').value}&level=${L}`);
+      $('#R').innerHTML=`<div class="card tw"><table><tr><th>الرمز</th><th>الحساب</th><th class="n">رصيد أول المدة</th><th class="n">مدين الفترة</th><th class="n">دائن الفترة</th><th class="n">الرصيد المدين</th><th class="n">الرصيد الدائن</th></tr>
+      ${d.rows.map(a=>`<tr class="${a.is_group?'g':''} click" onclick="go('#/r/ledger/${a.code}')"><td>${a.code}</td><td style="padding-right:${8+(a.code.length-1)*12}px">${esc(a.name)}</td><td class="n">${iqd(a.open)}</td><td class="n">${iqd(a.d)}</td><td class="n">${iqd(a.c)}</td><td class="n">${a.close>0?iqd(a.close):''}</td><td class="n">${a.close<0?iqd(-a.close):''}</td></tr>`).join('')}
+      <tr class="tot"><td colspan=2>المجموع</td><td class="n">${iqd(d.totals.open)}</td><td class="n">${iqd(d.totals.d)}</td><td class="n">${iqd(d.totals.c)}</td><td colspan=2 class="n">${Math.abs(d.totals.d-d.totals.c)<0.01?'<span class="grn">✓ متوازن</span>':'<span class="red">غير متوازن</span>'}</td></tr></table></div>`};bindRange(load);$('#rL').onchange=load;return load()}
+  if(nm==='ledger'){setTitle('كشف حساب (دفتر الأستاذ)');const {html}=rangeBar({from:y0,to:T},`<div class="f"><label>الحساب</label><select id="rA">${accOpts(arg||'1811',null,true)}</select></div>`);V.innerHTML=html+'<div id="R"></div>';
+    const load=async()=>{const d=await api(`/api/reports/ledger?account=${$('#rA').value}&from=${$('#rF').value}&to=${$('#rT').value}`);
+      $('#R').innerHTML=`<div class="card tw"><table><tr><th>التاريخ</th><th>القيد</th><th>البيان</th><th>الجهة</th><th>المشروع</th><th class="n">مدين</th><th class="n">دائن</th><th class="n">الرصيد</th><th class="n">بالدولار</th></tr><tr class="g"><td colspan=7>رصيد أول المدة</td><td class="n">${iqd(d.opening)}</td><td></td></tr>
+      ${d.rows.map(r=>`<tr class="click" onclick="go('#/journal/${r.jid}')"><td>${r.date}</td><td>${esc(r.no)}</td><td>${esc(r.memo||r.jmemo||'')}${r.account_code!==d.account.code?' <span class="mut">('+r.account_code+')</span>':''}</td><td>${esc(r.party||'')}</td><td>${esc(r.project||'')}</td><td class="n">${r.debit?iqd(r.debit):''}</td><td class="n">${r.credit?iqd(r.credit):''}</td><td class="n">${iqd(r.balance)}</td><td class="n mut">${r.currency==='USD'?num(r.fc_debit||-r.fc_credit,2):''}</td></tr>`).join('')}
+      <tr class="tot"><td colspan=7>الرصيد الختامي</td><td class="n">${iqd(d.closing)}</td><td></td></tr></table></div>`};bindRange(load);$('#rA').onchange=load;return load()}
+  if(nm==='income'){setTitle('قائمة الدخل');const {html}=rangeBar({from:y0,to:T},`<div class="f"><label>المشروع (اختياري)</label><select id="rP">${projOpts(qp.get('project_id'))}</select></div>`);V.innerHTML=html+'<div id="R"></div>';
+    const load=async()=>{const d=await api(`/api/reports/income?from=${$('#rF').value}&to=${$('#rT').value}${$('#rP').value?'&project_id='+$('#rP').value:''}`);
+      const sec=(t,ttl)=>d.rows.filter(a=>a.type===t).map(a=>`<tr class="${a.is_group?'g':''}"><td style="padding-right:${8+(a.code.length-1)*14}px">${a.code} – ${esc(a.name)}</td><td class="n">${iqd(a.amount)}</td></tr>`).join('');
+      $('#R').innerHTML=`<div class="card" style="max-width:800px"><h3>${esc(set('company_ar'))}<br><small class="mut">قائمة الدخل للفترة ${d.from} – ${d.to}</small></h3><table><tr><th colspan=2>الإيرادات</th></tr>${sec('revenue')}<tr class="tot"><td>مجموع الإيرادات</td><td class="n">${iqd(d.revenue)}</td></tr>
+      <tr><th colspan=2>المصروفات</th></tr>${sec('expense')}<tr class="tot"><td>مجموع المصروفات</td><td class="n">${iqd(d.expense)}</td></tr>
+      <tr class="tot"><td style="font-size:16px">${d.net>=0?'صافي الربح':'صافي الخسارة'}</td><td class="n ${d.net>=0?'grn':'red'}" style="font-size:16px">${iqd(Math.abs(d.net))}</td></tr></table></div>`};bindRange(load);return load()}
+  if(nm==='balance'){setTitle('الميزانية العمومية');const {html}=rangeBar({to:T});V.innerHTML=html+'<div id="R"></div>';
+    const load=async()=>{const d=await api(`/api/reports/balance?to=${$('#rT').value}`);const rows=(arr,sg)=>arr.map(a=>`<tr class="${a.is_group?'g':''}"><td style="padding-right:${8+(a.code.length-1)*14}px">${a.code} – ${esc(a.name)}</td><td class="n">${iqd(sg*a.close)}</td></tr>`).join('');
+      $('#R').innerHTML=`<div class="card" style="max-width:860px"><h3>${esc(set('company_ar'))}<br><small class="mut">الميزانية العمومية كما في ${d.to}</small></h3><table>
+      <tr><th colspan=2>الموجودات</th></tr>${rows(d.assets,1)}<tr class="tot"><td>مجموع الموجودات</td><td class="n">${iqd(d.totalAssets)}</td></tr>
+      <tr><th colspan=2>المطلوبات</th></tr>${rows(d.liabilities,-1)}<tr class="tot"><td>مجموع المطلوبات</td><td class="n">${iqd(d.totalLiabilities)}</td></tr>
+      <tr><th colspan=2>حقوق الملكية</th></tr>${rows(d.equity,-1)}<tr><td>${d.netIncome>=0?'ربح':'خسارة'} الفترة غير المرحّل</td><td class="n">${iqd(d.netIncome)}</td></tr><tr class="tot"><td>مجموع حقوق الملكية</td><td class="n">${iqd(d.totalEquity+d.netIncome)}</td></tr>
+      <tr class="tot"><td>مجموع المطلوبات وحقوق الملكية</td><td class="n">${iqd(d.totalLiabilities+d.totalEquity+d.netIncome)}</td></tr></table><p class="${Math.abs(d.check)<0.05?'grn':'red'}">${Math.abs(d.check)<0.05?'✓ الميزانية متوازنة':'⚠ فرق '+iqd(d.check)}</p></div>`};bindRange(load);return load()}
+  if(nm==='parties'){const kind=arg==='supplier'?'supplier':'customer';setTitle(kind==='customer'?'ذمم الزبائن وأعمارها':'ذمم الموردين');const {html}=rangeBar({to:T});V.innerHTML=html+'<div id="R"></div>';
+    const load=async()=>{const d=await api(`/api/reports/parties?kind=${kind}&to=${$('#rT').value}`);const sg=kind==='customer'?1:-1;const rows=d.rows.filter(r=>r.bal);const tt=k=>iqd(rows.reduce((s,r)=>s+(k==='bal'?sg*r.bal:r[k]),0));
+      $('#R').innerHTML=`<div class="card tw"><table><tr><th>${kind==='customer'?'الزبون':'المورد'}</th><th>الهاتف</th><th class="n">الرصيد (د.ع)</th><th class="n">منه بالدولار</th><th class="n">حتى 30 يوماً</th><th class="n">31–60</th><th class="n">61–90</th><th class="n">أكثر من 90</th><th>آخر حركة</th></tr>
+      ${rows.map(r=>`<tr class="click" onclick="go('#/r/statement/${r.id}')"><td>${esc(r.name)}</td><td dir="ltr" style="text-align:right">${esc(r.phone||'')}</td><td class="n ${sg*r.bal<0?'red':''}">${iqd(sg*r.bal)}</td><td class="n">${r.usd?num(sg*r.usd,2)+' $':''}</td><td class="n">${iqd(r.a0)}</td><td class="n">${iqd(r.a30)}</td><td class="n">${iqd(r.a60)}</td><td class="n ${r.a90?'red':''}">${iqd(r.a90)}</td><td>${r.last||''}</td></tr>`).join('')||'<tr><td colspan=9 class="mut">لا توجد أرصدة</td></tr>'}
+      <tr class="tot"><td colspan=2>المجموع</td><td class="n">${tt('bal')}</td><td></td><td class="n">${tt('a0')}</td><td class="n">${tt('a30')}</td><td class="n">${tt('a60')}</td><td class="n">${tt('a90')}</td><td></td></tr></table></div>`};bindRange(load);return load()}
+  if(nm==='statement'){setTitle('كشف حساب جهة');const {html}=rangeBar({from:y0,to:T},`<div class="f"><label>الجهة</label><select id="rP">${partyOpts(arg)}</select></div>`);V.innerHTML=html+'<div id="R"></div>';
+    const load=async()=>{if(!$('#rP').value)return $('#R').innerHTML='<p class="mut">اختر الجهة</p>';const d=await api(`/api/reports/statement?party_id=${$('#rP').value}&from=${$('#rF').value}&to=${$('#rT').value}`);const usd=d.party.currency==='USD'||d.rows.some(r=>r.currency==='USD');
+      $('#R').innerHTML=`<div class="card tw"><h3>${esc(d.party.name)} <small class="mut">${PK[d.party.kind]} · ${d.from} – ${d.to}</small></h3><table><tr><th>التاريخ</th><th>المستند</th><th>البيان</th><th>المشروع</th><th class="n">مدين</th><th class="n">دائن</th><th class="n">الرصيد (د.ع)</th>${usd?'<th class="n">الحركة $</th><th class="n">الرصيد $</th>':''}</tr>
+      <tr class="g"><td colspan=6>رصيد سابق</td><td class="n">${iqd(d.opening)}</td>${usd?`<td></td><td class="n">${num(d.openingUsd,2)}</td>`:''}</tr>
+      ${d.rows.map(r=>`<tr><td>${r.date}</td><td>${esc(r.no)}</td><td>${esc(r.memo||r.jmemo||'')}</td><td>${esc(r.project||'')}</td><td class="n">${r.debit?iqd(r.debit):''}</td><td class="n">${r.credit?iqd(r.credit):''}</td><td class="n">${iqd(r.balance)}</td>${usd?`<td class="n">${r.currency==='USD'?num(r.fc_debit-r.fc_credit,2):''}</td><td class="n">${num(r.usdBalance,2)}</td>`:''}</tr>`).join('')}
+      <tr class="tot"><td colspan=6>الرصيد الختامي ${d.closing>0?'(مدين — له علينا/علينا له حسب النوع)':''}</td><td class="n">${iqd(d.closing)}</td>${usd?`<td></td><td class="n">${num(d.closingUsd,2)} $</td>`:''}</tr></table></div>`};bindRange(load);$('#rP').onchange=load;return load()}
+  if(nm==='inventory'){setTitle('أرصدة المخزون');V.innerHTML=`<div class="toolbar"><div class="f"><label>المخزن</label><select id="rW"><option value="">كل المخازن</option>${whOpts()}</select></div><button class="btn pri" id="rGo">عرض</button><span class="sp"></span><button class="btn" onclick="printView()">طباعة</button><button class="btn" onclick="tableCsv('المخزون')">تصدير Excel</button></div><div id="R"></div>`;
+    const load=async()=>{const d=await api('/api/reports/inventory'+($('#rW').value?'?warehouse_id='+$('#rW').value:''));
+      $('#R').innerHTML=`<div class="card tw"><table><tr><th>الرمز</th><th>المادة</th><th>الفئة</th><th class="n">الكمية</th><th>الوحدة</th><th class="n">متوسط الكلفة</th><th class="n">القيمة (د.ع)</th><th></th></tr>${d.rows.map(r=>`<tr class="click" onclick="go('#/r/itemcard/${r.id}')"><td>${esc(r.code||'')}</td><td>${esc(r.name)}</td><td>${esc(r.category||'')}</td><td class="n ${r.low?'red':''}">${num(r.qty)}</td><td>${esc(r.unit||'')}</td><td class="n">${iqd(r.avg)}</td><td class="n">${iqd(r.value)}</td><td>${r.low?'<span class="pill bad">تحت الحد الأدنى</span>':''}</td></tr>`).join('')}<tr class="tot"><td colspan=6>المجموع</td><td class="n">${iqd(d.total)}</td><td></td></tr></table></div>`};$('#rGo').onclick=load;return load()}
+  if(nm==='itemcard'){setTitle('بطاقة مادة');V.innerHTML=`<div class="toolbar"><div class="f"><label>المادة</label><select id="rI">${itemOpts(arg,true)}</select></div><span class="sp"></span><button class="btn" onclick="printView()">طباعة</button><button class="btn" onclick="tableCsv('بطاقة-مادة')">تصدير Excel</button></div><div id="R"></div>`;
+    const load=async()=>{if(!$('#rI').value)return;const d=await api('/api/reports/itemcard?item_id='+$('#rI').value);
+      $('#R').innerHTML=`<div class="card tw"><table><tr><th>التاريخ</th><th>المستند</th><th>المخزن</th><th>المشروع</th><th class="n">وارد</th><th class="n">صادر</th><th class="n">كلفة الوحدة</th><th class="n">الرصيد</th><th class="n">القيمة</th></tr>${d.rows.map(r=>`<tr><td>${r.date}</td><td>${esc(r.doc||'')}</td><td>${esc(r.wh||'')}</td><td>${esc(r.project||'')}</td><td class="n">${r.qty>0?num(r.qty):''}</td><td class="n">${r.qty<0?num(-r.qty):''}</td><td class="n">${iqd(r.unit_cost)}</td><td class="n">${num(r.balance)}</td><td class="n">${iqd(r.value)}</td></tr>`).join('')||'<tr><td colspan=9 class="mut">لا توجد حركات</td></tr>'}</table></div>`};$('#rI').onchange=load;return load()}
+  if(nm==='projects'){setTitle('تكاليف وأرباح المشاريع');const {html}=rangeBar({from:'2000-01-01',to:T});V.innerHTML=html+'<div id="R"></div>';
+    const load=async()=>{const d=await api(`/api/reports/projects?from=${$('#rF').value}&to=${$('#rT').value}`);
+      $('#R').innerHTML=`<div class="card tw"><table><tr><th>المشروع</th><th>الزبون</th><th class="n">قيمة العقد</th><th class="n">الإيرادات</th><th class="n">منها المواد (كلفة)</th><th class="n">مجموع التكاليف</th><th class="n">الربح</th><th class="n">الهامش</th><th class="n">المحصّل</th></tr>
+      ${d.rows.map(r=>`<tr class="click" onclick="go('#/r/income?project_id=${r.id}')"><td><b>${esc(r.code)}</b> ${esc(r.name)}</td><td>${esc(r.customer||'')}</td><td class="n">${r.contract_value?money(r.contract_value,r.currency):''}</td><td class="n">${iqd(r.revenue)}</td><td class="n">${iqd(r.materials)}</td><td class="n">${iqd(r.cost)}</td><td class="n ${r.profit<0?'red':'grn'}">${iqd(r.profit)}</td><td class="n">${r.margin==null?'':r.margin+'%'}</td><td class="n">${iqd(r.collected)}</td></tr>`).join('')||'<tr><td colspan=9 class="mut">لا توجد مشاريع</td></tr>'}</table></div><p class="mut">تُحمَّل الإيرادات والتكاليف على المشروع باختياره في الفواتير والسندات وصرف المواد.</p>`};bindRange(load);return load()}
+  if(nm==='sales'){setTitle('تقرير المبيعات والمشتريات');const {html}=rangeBar({from:today().slice(0,7)+'-01',to:T},`<div class="f s"><label>النوع</label><select id="rK"><option value="sale">المبيعات</option><option value="purchase">المشتريات</option></select></div>`);V.innerHTML=html+'<div id="R"></div>';
+    const load=async()=>{const d=await api(`/api/reports/sales?type=${$('#rK').value}&from=${$('#rF').value}&to=${$('#rT').value}`);
+      $('#R').innerHTML=`<div class="kpis"><div class="kpi dk"><small>المجموع بالدينار</small><b>${iqd(d.total)}</b></div><div class="kpi"><small>عدد الفواتير</small><b>${d.count}</b></div></div>
+      <div class="row" style="align-items:flex-start"><div class="card tw" style="flex:2;min-width:320px"><table><tr><th>الرقم</th><th>التاريخ</th><th>الجهة</th><th>المشروع</th><th class="n">المبلغ</th><th class="n">بالدينار</th></tr>${d.rows.map(r=>`<tr class="click ${r.status==='void'?'void':''}" onclick="go('#/invoice/${r.id}')"><td>${esc(r.no)}</td><td>${r.date}</td><td>${esc(r.party)}</td><td>${esc(r.project||'')}</td><td class="n">${money(r.total,r.currency)}</td><td class="n">${iqd(r.total*r.rate)}</td></tr>`).join('')}</table></div>
+      <div class="card" style="flex:1;min-width:240px"><h3>حسب الجهة</h3><table>${d.byParty.map(x=>`<tr><td>${esc(x.name)}</td><td class="n">${x.n}</td><td class="n">${iqd(x.t)}</td></tr>`).join('')}</table></div></div>`};bindRange(load);$('#rK').onchange=load;return load()}
+  if(nm==='cash'){setTitle('أرصدة الصناديق والمصارف');const {html}=rangeBar({to:T});V.innerHTML=html+'<div id="R"></div>';
+    const load=async()=>{const d=await api(`/api/reports/cash?to=${$('#rT').value}`);$('#R').innerHTML=`<div class="card"><table><tr><th>الحساب</th><th class="n">الرصيد بالدينار</th><th class="n">بالدولار</th><th></th></tr>${d.rows.map(r=>`<tr><td>${r.code} – ${esc(r.name)}</td><td class="n">${iqd(r.balance)}</td><td class="n">${r.usd!=null?num(r.usd,2)+' $':''}</td><td><a class="btn sm" href="#/r/ledger/${r.code}">الحركات</a></td></tr>`).join('')}<tr class="tot"><td>المجموع</td><td class="n">${iqd(d.rows.reduce((s,r)=>s+r.balance,0))}</td><td></td><td></td></tr></table></div>`};bindRange(load);return load()}
+  if(nm==='audit'){setTitle('سجل التدقيق');const d=await api('/api/reports/audit?limit=500');V.innerHTML=`<div class="card tw"><table><tr><th>الوقت</th><th>المستخدم</th><th>العملية</th><th>الكيان</th><th>المعرّف</th><th>التفاصيل</th><th>IP</th></tr>${d.rows.map(r=>`<tr><td dir="ltr" style="text-align:right">${new Date(r.at).toLocaleString('en-GB')}</td><td>${esc(r.user)}</td><td>${esc(r.action)}</td><td>${esc(r.entity)}</td><td>${esc(r.entity_id)}</td><td class="mut" style="font-size:12px;max-width:380px;overflow:hidden">${esc((r.details||'').slice(0,200))}</td><td dir="ltr">${esc(r.ip||'')}</td></tr>`).join('')}</table></div>`;return}
+  throw new Error('تقرير غير معروف')}
+
+/* ================= الإعدادات والمستخدمون ================= */
+function pgSettings(){setTitle('الإعدادات');const s=M.settings;const DA={acc_customers:'الزبائن',acc_suppliers:'الموردون',acc_advances:'العهد والسلف',acc_cash_iqd:'الصندوق – دينار',acc_cash_usd:'الصندوق – دولار',acc_bank_iqd:'المصرف – دينار',acc_bank_usd:'المصرف – دولار',acc_sales:'إيراد مبيعات المواد',acc_services:'إيراد الخدمات',acc_cogs:'كلفة البضاعة المباعة / المواد المصروفة',acc_inventory:'المخزون الافتراضي',acc_discount_allowed:'الخصم المسموح به',acc_tax:'الضرائب المستحقة',acc_stock_loss:'عجز الجرد',acc_stock_gain:'زيادة الجرد',acc_opening:'الأرصدة الافتتاحية',acc_purchases_service:'مشتريات خدمية افتراضية'};
+  $('#view').innerHTML=`<div class="card"><h3>بيانات الشركة (تظهر في الطباعة)</h3><div class="row"><div class="f"><label>الاسم بالعربية</label><input id="s_ar" value="${esc(s.company_ar)}"></div><div class="f"><label>بالإنجليزية</label><input id="s_en" value="${esc(s.company_en)}" dir="ltr"></div></div>
+   <div class="row" style="margin-top:8px"><div class="f"><label>العنوان</label><input id="s_ad" value="${esc(s.company_address)}"></div><div class="f s"><label>الهاتف</label><input id="s_ph" value="${esc(s.company_phone)}" dir="ltr"></div></div>
+   <div class="row" style="margin-top:8px"><div class="f"><label>شروط عروض الأسعار الافتراضية</label><textarea id="s_qt">${esc(s.quote_terms||'')}</textarea></div><div class="f"><label>ملاحظة أسفل الفواتير</label><textarea id="s_it">${esc(s.invoice_terms||'')}</textarea></div></div></div>
+  <div class="card"><h3>العملة والفترات</h3><div class="row"><div class="f s"><label>سعر صرف الدولار الحالي (دينار)</label><input id="s_r" value="${esc(s.usd_rate)}" dir="ltr"></div><div class="f s"><label>قفل الفترة حتى تاريخ</label><input id="s_l" type="date" value="${esc(s.lock_date||'')}"></div></div><p class="mut">بعد القفل لا يمكن تسجيل أو إلغاء أي حركة بتاريخ مساوٍ أو أقدم.</p></div>
+  <div class="card"><h3>الحسابات الافتراضية للترحيل التلقائي</h3><div class="row">${Object.entries(DA).map(([k,t])=>`<div class="f" style="min-width:260px"><label>${t}</label><select id="s_${k}">${accOpts(s[k])}</select></div>`).join('')}</div></div>
+  <div class="row"><button class="btn pri" id="s_sv">حفظ الإعدادات</button></div>
+  <div class="card" style="margin-top:14px"><h3>النسخ الاحتياطي</h3><p class="mut">نسخة تلقائية يومياً (يُحتفظ بآخر 60 نسخة) في مجلد البيانات على الحاسبة الأم: data\\backups</p><button class="btn" id="bk">نسخة احتياطية الآن</button><div id="bkl" class="mut" style="margin-top:8px"></div></div>`;
+  $('#s_sv').onclick=async()=>{const b={company_ar:$('#s_ar').value,company_en:$('#s_en').value,company_address:$('#s_ad').value,company_phone:$('#s_ph').value,quote_terms:$('#s_qt').value,invoice_terms:$('#s_it').value,usd_rate:$('#s_r').value,lock_date:$('#s_l').value};Object.keys(DA).forEach(k=>b[k]=$('#s_'+k).value);
+    try{await post('/api/settings',b);await loadMeta();toast('حُفظت الإعدادات')}catch(e){toast(e.message)}};
+  const lb=async()=>{try{const l=await api('/api/backups');$('#bkl').innerHTML=l.slice(0,8).map(x=>esc(x.file)+' — '+Math.round(x.size/1024)+' KB').join('<br>')}catch(_){}};lb();
+  $('#bk').onclick=async()=>{try{const r=await post('/api/backup');toast('تمت النسخة: '+r.file);lb()}catch(e){toast(e.message)}}}
+async function pgUsers(){setTitle('المستخدمون والصلاحيات');const us=await api('/api/users');
+  $('#view').innerHTML=`<div class="toolbar"><button class="btn lime" onclick="userForm()">+ مستخدم</button></div><div class="card"><table><tr><th>اسم المستخدم</th><th>الاسم</th><th>الدور</th><th>الحالة</th><th></th></tr>${us.map(u=>`<tr><td dir="ltr" style="text-align:right">${esc(u.username)}</td><td>${esc(u.name)}</td><td>${esc(M.roles[u.role]||u.role)}</td><td>${u.active?'<span class="pill ok">فعّال</span>':'<span class="pill bad">معطّل</span>'}</td><td><button class="btn sm" onclick='userForm(${JSON.stringify(u).replace(/'/g,"&#39;")})'>تعديل</button></td></tr>`).join('')}</table></div>
+  <div class="card"><h3>الأدوار</h3><table><tr><td><b>مدير النظام</b></td><td>كل شيء، والإعدادات والمستخدمون وقفل الفترات</td></tr><tr><td><b>محاسب</b></td><td>كل العمليات المحاسبية والتقارير والإلغاء</td></tr><tr><td><b>مبيعات</b></td><td>عروض الأسعار وفواتير البيع والزبائن والمشاريع وتقارير المبيعات</td></tr><tr><td><b>مشتريات</b></td><td>فواتير الشراء والموردون والمواد وتقارير المخزون</td></tr><tr><td><b>أمين مخزن</b></td><td>المواد وحركات المخزن وتقارير المخزون</td></tr><tr><td><b>اطلاع على التقارير</b></td><td>كل التقارير بدون أي تعديل</td></tr></table></div>`;
+  window.userForm=u=>{u=u||{role:'accountant',active:1};dlg(`<h3>${u.id?'تعديل مستخدم':'مستخدم جديد'}</h3><div class="row"><div class="f"><label>اسم المستخدم</label><input id="u_u" dir="ltr" value="${esc(u.username||'')}" ${u.id?'disabled':''}></div><div class="f"><label>الاسم</label><input id="u_n" value="${esc(u.name||'')}"></div></div>
+    <div class="row" style="margin-top:8px"><div class="f"><label>الدور</label><select id="u_r">${Object.entries(M.roles).map(([k,v])=>`<option value="${k}" ${u.role===k?'selected':''}>${v}</option>`).join('')}</select></div><div class="f"><label>${u.id?'كلمة مرور جديدة (اختياري)':'كلمة المرور (8 أحرف على الأقل)'}</label><input id="u_p" type="password"></div></div>
+    <label style="display:block;margin-top:8px"><input type="checkbox" id="u_a" ${u.active?'checked':''} style="width:auto"> فعّال</label><div class="row" style="margin-top:12px"><button class="btn pri" id="u_s">حفظ</button><button class="btn" onclick="closeDlg()">إلغاء</button></div>`);
+    $('#u_s').onclick=async()=>{try{await post('/api/users',{id:u.id,username:$('#u_u').value,name:$('#u_n').value,role:$('#u_r').value,password:$('#u_p').value||undefined,active:$('#u_a').checked});closeDlg();route()}catch(e){toast(e.message)}}}}
+function pgPassword(){setTitle('تغيير كلمة المرور');$('#view').innerHTML=`<div class="card" style="max-width:420px"><div class="f"><label>الحالية</label><input id="pw0" type="password"></div><div class="f" style="margin-top:8px"><label>الجديدة (8 أحرف على الأقل)</label><input id="pw1" type="password"></div><button class="btn pri" style="margin-top:12px" id="pwS">حفظ</button></div>`;
+  $('#pwS').onclick=async()=>{try{await post('/api/password',{old:$('#pw0').value,password:$('#pw1').value});toast('تم تغيير كلمة المرور');go('#/')}catch(e){toast(e.message)}}}
+
+/* ================= الطباعة ================= */
+function letterhead(title,no,date){return `<div class="ph"><div class="co"><b>${esc(set('company_ar'))}</b><small dir="ltr" style="text-align:right">${esc(set('company_en'))}</small><small>${esc(set('company_address'))} · ${esc(set('company_phone'))}</small></div><div class="ti"><b>${esc(title)}</b><div>رقم: ${esc(no)}</div><div>التاريخ: ${esc(date)}</div></div></div>`}
+function doPrint(html){$('#print').innerHTML=html+`<div class="pfoot">${esc(set('company_ar'))} — ${esc(set('company_address'))} — ${esc(set('company_phone'))}</div>`;setTimeout(()=>window.print(),80)}
+window.printInvoice=async id=>{const d=await api('/api/invoices/'+id);doPrint(letterhead(d.type==='sale'?'فاتورة بيع':'فاتورة شراء',d.no,d.date)+`<p>${d.type==='sale'?'السيد/السادة':'المورد'}: <b>${esc(d.party)}</b>${d.party_phone?' · '+esc(d.party_phone):''}${d.project?'<br>المشروع: '+esc(d.project):''}${d.status==='void'?'<br><b style="color:#c00">ملغاة</b>':''}</p>
+  <table class="pt"><tr><th>#</th><th>البيان</th><th>الكمية</th><th>السعر</th><th>المجموع</th></tr>${d.lines.map((l,i)=>`<tr><td>${i+1}</td><td>${esc(l.description)}</td><td>${num(l.qty)}</td><td>${num(l.unit_price)}</td><td>${num(l.total)}</td></tr>`).join('')}
+  <tr><td colspan=4>المجموع</td><td>${num(d.subtotal)}</td></tr>${d.discount?`<tr><td colspan=4>الخصم</td><td>${num(d.discount)}</td></tr>`:''}${d.tax?`<tr><td colspan=4>ضريبة/رسوم</td><td>${num(d.tax)}</td></tr>`:''}<tr><th colspan=4>الإجمالي</th><th>${money(d.total,d.currency)}</th></tr></table>
+  <p><b>${esc(tafqeet(d.total,d.currency))}</b></p>${d.notes?`<p>ملاحظات: ${esc(d.notes)}</p>`:''}${set('invoice_terms')?`<p style="white-space:pre-line">${esc(set('invoice_terms'))}</p>`:''}<div class="psig"><div>المحاسب</div><div>المستلم</div><div>المدير</div></div>`)};
+window.printQuote=async id=>{const q=await api('/api/quotations/'+id);doPrint(letterhead('عرض سعر',q.no,q.date)+`<p>السيد/السادة: <b>${esc(q.party||q.customer_name||'')}</b>${q.customer_phone||q.party_phone?' · '+esc(q.customer_phone||q.party_phone):''}${q.valid_until?'<br>العرض صالح لغاية: '+q.valid_until:''}</p>
+  <table class="pt"><tr><th>#</th><th>البيان</th><th>الكمية</th><th>السعر</th><th>المجموع</th></tr>${q.lines.map((l,i)=>`<tr><td>${i+1}</td><td>${esc(l.description)}</td><td>${num(l.qty)}</td><td>${num(l.unit_price)}</td><td>${num(l.total)}</td></tr>`).join('')}
+  ${q.discount?`<tr><td colspan=4>الخصم</td><td>${num(q.discount)}</td></tr>`:''}<tr><th colspan=4>الإجمالي</th><th>${money(q.total,q.currency)}</th></tr></table><p><b>${esc(tafqeet(q.total,q.currency))}</b></p>${q.terms?`<p style="white-space:pre-line">${esc(q.terms)}</p>`:''}<div class="psig"><div>قسم المبيعات</div><div></div><div>المدير</div></div>`)};
+window.printVoucher=async id=>{const v=await api('/api/vouchers/'+id);doPrint(letterhead(v.type==='receipt'?'سند قبض':'سند صرف',v.no,v.date)+`<table class="pt"><tr><th style="width:30%">المبلغ</th><td style="font-size:17px"><b>${money(v.amount,v.currency)}</b></td></tr><tr><th>المبلغ كتابةً</th><td>${esc(tafqeet(v.amount,v.currency))}</td></tr>
+  <tr><th>${v.type==='receipt'?'استلمنا من':'صُرف إلى'}</th><td>${esc(v.payee||v.party||'')}</td></tr><tr><th>وذلك عن</th><td>${esc(v.memo||'')}</td></tr><tr><th>الحساب</th><td>${esc(accName(v.counter_account))}</td></tr><tr><th>طريقة الدفع</th><td>${{cash:'نقداً',cheque:'صك',transfer:'حوالة مصرفية'}[v.method]||''} ${esc(v.cheque_no||'')} — ${esc(accName(v.cash_account))}</td></tr>${v.project?`<tr><th>المشروع</th><td>${esc(v.project)}</td></tr>`:''}${v.status==='void'?'<tr><th>الحالة</th><td style="color:#c00">ملغى</td></tr>':''}</table>
+  <div class="psig"><div>المحاسب</div><div>${v.type==='receipt'?'أمين الصندوق':'المستلم'}</div><div>المدير</div></div>`)};
+window.printStock=async id=>{const d=await api('/api/stock/'+id);doPrint(letterhead(STK[d.type],d.no,d.date)+`<p>المخزن: ${esc(d.warehouse||'')}${d.to_warehouse?' ← '+esc(d.to_warehouse):''}${d.project?' · المشروع: '+esc(d.project):''}<br>${esc(d.memo||'')}</p><table class="pt"><tr><th>#</th><th>المادة</th><th>الكمية</th><th>الوحدة</th></tr>${d.lines.filter(l=>!(d.type==='transfer'&&l.qty>0)).map((l,i)=>`<tr><td>${i+1}</td><td>${esc(l.item)}</td><td>${num(Math.abs(l.qty))}</td><td>${esc(l.unit||'')}</td></tr>`).join('')}</table><div class="psig"><div>أمين المخزن</div><div>المستلم</div><div>المدير</div></div>`)};
+window.addEventListener('afterprint',()=>{$('#print').innerHTML=''});
+
+if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+boot();
+</script>
+</body>
+</html>
