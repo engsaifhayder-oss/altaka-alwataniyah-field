@@ -1,0 +1,50 @@
+name: macOS build (adds the DMGs to the latest release)
+
+# يعمل تلقائياً بعد نجاح البناء الرئيسي، ويمكن تشغيله يدوياً.
+# خوادم ماك arm64 في GitHub مزدحمة، فيُستعمل خادم Intel مع بديل arm64.
+on:
+  workflow_run:
+    workflows: [ "Build unified app (Android + Windows + macOS + iOS web) + Windows server" ]
+    types: [ completed ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure'
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        os: [ macos-15-intel, macos-latest ]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - name: Skip if the DMGs are already in the release
+        id: chk
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          n=$(gh release view latest -R ${{ github.repository }} --json assets --jq '[.assets[].name|select(endswith(".dmg"))]|length' 2>/dev/null || echo 0)
+          echo "have=$n" >> $GITHUB_OUTPUT
+      - if: steps.chk.outputs.have != '2'
+        uses: actions/checkout@v4
+        with: { ref: '${{ github.event.workflow_run.head_sha || github.sha }}' }
+      - if: steps.chk.outputs.have != '2'
+        uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Build macOS DMG (Apple Silicon + Intel)
+        if: steps.chk.outputs.have != '2'
+        env: { CSC_IDENTITY_AUTO_DISCOVERY: 'false' }
+        run: |
+          mkdir -p desktop/app && cp -r index.html erp-bridge.js icon-192.png icon-512.png tools desktop/app/
+          cd desktop
+          npm install --no-audit --no-fund
+          npx electron-builder --mac dmg --arm64 --publish never
+          npx electron-builder --mac dmg --x64 --publish never
+          for a in dist/*.dmg; do hdiutil verify "$a"; done
+      - name: Add the DMGs to the release
+        if: steps.chk.outputs.have != '2'
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: gh release upload latest desktop/dist/altaka-alwataniyah-field-mac-*.dmg --clobber -R ${{ github.repository }}
