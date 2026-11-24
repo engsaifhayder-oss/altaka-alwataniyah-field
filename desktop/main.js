@@ -42,7 +42,10 @@ function createWindow() {
     if (COMPANY.test(url)) { openErp(url); return { action: 'deny' }; }
     shell.openExternal(url); return { action: 'deny' };
   });
-  win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('file://') && !url.startsWith('blob:')) { e.preventDefault(); if (COMPANY.test(url)) openErp(url); else shell.openExternal(url); } });
+  // التطبيق الموحد ينتقل إلى نسخته على خادم الشركة (https://app.altaka-field.com/app/) فتظهر منظومة ERP داخل النافذة نفسها
+  win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('file://') && !url.startsWith('blob:') && !COMPANY.test(url)) { e.preventDefault(); shell.openExternal(url); } });
+  // بلا إنترنت عند التشغيل: تبقى النسخة المضمّنة تعمل للأدوات الميدانية
+  win.webContents.on('did-fail-load', (e, code, desc, url, isMain) => { if (isMain && COMPANY.test(url)) win.loadFile(path.join(__dirname, 'app', 'index.html')); });
 }
 
 app.whenReady().then(async () => {

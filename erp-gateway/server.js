@@ -45,6 +45,8 @@ function loadConfig() {
   // رابط منظومة ERP عبر Cloudflare (يفتحه التطبيق الموحد لموظفي الإدارات)
   if (c.erpPublicUrl == null) { c.erpPublicUrl = 'https://erp.altaka-field.com'; changed = true; }
   if (!c.publicUrl) { c.publicUrl = 'https://app.altaka-field.com'; changed = true; }
+  // عنوان خادم ERP على الحاسبة الأم (المنفذ المشفّر — لا تستعمل 5480 فهو للوحة الخادم المحلية)
+  if (!c.erpLocalUrl) { c.erpLocalUrl = 'https://127.0.0.1:5443'; changed = true; }
   if (changed) fs.writeFileSync(CONFIG_FILE, JSON.stringify(c, null, 2));
   return c;
 }
@@ -236,7 +238,9 @@ function profileOf(e) { return PROFILES[e.profile] ? e.profile : autoProfile(e);
 function permsOf(e) {
   const pr = profileOf(e);
   const list = pr === 'custom' ? (e.perms || []) : PROFILES[pr].perms;
-  return list.filter(k => PERMS[k]);
+  const out = list.filter(k => PERMS[k]);
+  if (e.erpUser && !out.includes('erp')) out.push('erp');
+  return out;
 }
 function can(e, k) { return permsOf(e).includes(k); }
 function cleanPerms(b, it) {
@@ -244,7 +248,7 @@ function cleanPerms(b, it) {
   if (Array.isArray(b.perms)) { it.perms = b.perms.filter(k => PERMS[k]); if (!b.profile) it.profile = 'custom'; }
   if (it.profile !== 'custom') delete it.perms;
 }
-function pubEmployee(e) { return { id: e.id, code: e.code, name: e.name, department: e.department, jobTitle: e.jobTitle, phone: e.phone, email: e.email || '', profile: profileOf(e), profileAuto: !PROFILES[e.profile], perms: permsOf(e) }; }
+function pubEmployee(e) { return { id: e.id, code: e.code, name: e.name, department: e.department, jobTitle: e.jobTitle, phone: e.phone, email: e.email || '', erpUser: e.erpUser || '', source: e.source || '', profile: profileOf(e), profileAuto: !PROFILES[e.profile], perms: permsOf(e) }; }
 
 /* ---------------- الإشعارات (من الإدارة الهندسية / الإدارة العليا عبر ERP) ---------------- */
 function noticeFor(n, emp) { return n.active !== false && (n.audience === 'all' || (n.codes || []).includes(String(emp.code))); }
@@ -278,7 +282,7 @@ function bootstrapFor(emp) {
     warehouses: db.warehouses.filter(w => w.active !== false).map(w => ({ id: w.id, name: w.name, lat: w.lat, lng: w.lng, radiusM: w.radiusM || config.defaultRadiusM, code: makeCode('W', w.id) })),
     equipment: db.equipment.filter(x => x.active !== false),
     tasks: can(emp, 'attendance') ? db.tasks.filter(t => t.status !== 'cancelled' && t.status !== 'closed' && (t.assignees || []).includes(emp.id)).map(taskForMobile) : [],
-    perms: permsOf(emp), permNames: PERMS, erpUrl: config.erpPublicUrl || '',
+    perms: permsOf(emp), permNames: PERMS, erpUrl: config.erpPublicUrl || '', erpUser: emp.erpUser || '', erpPath: '/erp/',
     notifications: noticesFor(emp)
   };
 }
@@ -373,7 +377,7 @@ function route(method, pattern, handler) {
 }
 
 /* ===== واجهة الهاتف ===== */
-route('GET', '/api/mobile/ping', (req, res) => send(res, 200, { ok: true, serverTime: nowIso(), company: config.company, app: 'altaka-field-gateway', version: 2, erpUrl: config.erpPublicUrl || '' }));
+route('GET', '/api/mobile/ping', (req, res) => send(res, 200, { ok: true, serverTime: nowIso(), company: config.company, app: 'altaka-field-gateway', version: 3, erpUrl: config.erpPublicUrl || '' }));
 
 /* ---------------- الوصول من الإنترنت (Tailscale Funnel أو Cloudflare Tunnel) ---------------- */
 // الطلب القادم من الإنترنت يمر عبر وسيط (Funnel / النفق) فيحمل ترويساته؛ لوحة الإدارة وواجهة ERP تبقيان لشبكة الشركة فقط
@@ -392,16 +396,45 @@ function failed(key) { const f = fails.get(key); const n = f && Date.now() < f.u
 setInterval(() => { const now = Date.now(); for (const [k, f] of fails) if (now > f.until) fails.delete(k); }, 10 * 60e3).unref();
 
 route('POST', '/api/mobile/login', async (req, res) => {
+  // دخول واحد: الرقم الوظيفي + الرمز السري (الميدان) أو اسم مستخدم ERP + كلمة المرور (المنظومة + الميدان)
   const b = await readJson(req);
-  const code = String(b.code || '').trim(), ip = 'ip:' + clientIp(req);
-  if (tooMany('emp:' + code, 5) || tooMany(ip, 30)) return send(res, 429, { error: 'locked', message: 'محاولات خاطئة كثيرة — حاول بعد 15 دقيقة أو راجع الإدارة' });
-  const e = db.employees.find(x => String(x.code) === code && x.active !== false);
-  if (!e || !checkPin(b.pin || '', e.pinHash)) { failed('emp:' + code); failed(ip); return send(res, 401, { error: 'invalid_credentials', message: 'رقم الموظف أو الرمز السري غير صحيح' }); }
-  fails.delete('emp:' + code);
+  const user = String(b.user || b.code || '').trim(), pass = String(b.pass || b.pin || ''), ip = 'ip:' + clientIp(req);
+  if (!user || !pass) return send(res, 400, { error: 'missing', message: 'اكتب اسم المستخدم وكلمة المرور' });
+  const fk = 'emp:' + user.toLowerCase();
+  if (tooMany(fk, 5) || tooMany(ip, 30)) return send(res, 429, { error: 'locked', message: 'محاولات خاطئة كثيرة — حاول بعد 15 دقيقة أو راجع الإدارة' });
+  let e = db.employees.find(x => String(x.code) === user && x.active !== false && x.pinHash);
+  let via = 'pin', sso = null;
+  if (!e || !checkPin(pass, e.pinHash)) {
+    const r = await erpLogin(user, pass, b.mfaCode);
+    if (!r.ok) {
+      if (r.error === 'mfa_required') return send(res, 401, r);
+      if (r.error === 'erp_unreachable' && !e) return send(res, 502, r);
+      failed(fk); failed(ip);
+      return send(res, 401, { error: 'invalid_credentials', message: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
+    }
+    e = employeeForErp(user, r.me);
+    if (e.active === false) return send(res, 403, { error: 'inactive', message: 'الحساب معطّل في التطبيق — راجع الإدارة' });
+    via = 'erp'; sso = newSso(r.resp);
+  }
+  fails.delete(fk);
   const token = crypto.randomBytes(24).toString('hex');
-  db.sessions.push({ token, employeeId: e.id, deviceId: b.deviceId || null, device: b.device || null, createdAt: nowIso(), lastSeen: nowIso() });
+  db.sessions.push({ token, employeeId: e.id, via, deviceId: b.deviceId || null, device: b.device || null, createdAt: nowIso(), lastSeen: nowIso() });
   save();
-  send(res, 200, Object.assign({ token }, bootstrapFor(e)));
+  send(res, 200, Object.assign({ token, via, erpSso: sso }, bootstrapFor(e)));
+});
+
+// فتح واجهة ERP لاحقاً (بعد إعادة تشغيل التطبيق): كلمة مرور ERP مرة واحدة ← رمز دخول لمرة واحدة
+route('POST', '/api/mobile/erp-sso', async (req, res) => {
+  const a = mobileAuth(req); if (!a) return send(res, 401, { error: 'unauthorized' });
+  if (!can(a.employee, 'erp')) return send(res, 403, { error: 'forbidden', message: 'ليست لديك صلاحية منظومة ERP' });
+  const b = await readJson(req); const user = String(b.user || a.employee.erpUser || '').trim();
+  if (!user || !b.pass) return send(res, 400, { error: 'missing', message: 'اكتب كلمة مرور منظومة ERP' });
+  const fk = 'emp:' + user.toLowerCase();
+  if (tooMany(fk, 5)) return send(res, 429, { error: 'locked', message: 'محاولات خاطئة كثيرة — حاول بعد 15 دقيقة' });
+  const r = await erpLogin(user, String(b.pass), b.mfaCode);
+  if (!r.ok) { if (r.error === 'invalid_credentials') failed(fk); return send(res, r.error === 'erp_unreachable' ? 502 : 400, r); }
+  if (!a.employee.erpUser) { a.employee.erpUser = user; save(); }
+  send(res, 200, { ok: true, erpSso: newSso(r.resp) });
 });
 
 route('GET', '/api/mobile/bootstrap', (req, res) => {
@@ -562,6 +595,7 @@ crud('employees', 'E', (it, b, isNew) => {
   if (db.employees.some(e => e.code === String(b.code) && e.id !== it.id)) return 'رقم الموظف مستخدم مسبقاً';
   if (isNew && !b.pin) return 'الرمز السري مطلوب للموظف الجديد';
   Object.assign(it, { code: String(b.code).trim(), name: b.name.trim(), department: b.department || '', jobTitle: b.jobTitle || '', phone: b.phone || '', email: String(b.email || '').trim(), active: b.active !== false });
+  if (b.erpUser !== undefined) it.erpUser = String(b.erpUser || '').trim() || undefined;
   cleanPerms(b, it);
   if (b.pin) { if (String(b.pin).length < 4) return 'الرمز السري 4 أرقام على الأقل'; it.pinHash = hashPin(b.pin); db.sessions = db.sessions.filter(s => s.employeeId !== it.id); }
 });
@@ -654,6 +688,110 @@ route('POST', '/api/erp/sync', async (req, res, url) => {
   save(); send(res, 200, { ok: true, upserted: out });
 });
 
+
+/* ================= الدمج مع منظومة ERP: دخول واحد + نافذة واحدة =================
+   - التطبيق الموحد وواجهة ERP يُخدمان من الأصل نفسه (https://app.altaka-field.com): البوابة تمرّر
+     واجهة ERP تحت /erp/ وطلباتها (/api/*, /assets/*, /ext/* …) إلى خادم ERP على الحاسبة الأم.
+   - الدخول الواحد: يكتب الموظف اسم مستخدم ERP وكلمة مروره في التطبيق، فتسجّل البوابة الدخول في ERP
+     من جهة الخادم وتعطي التطبيق رمزاً لمرة واحدة (sso) يفتح به واجهة ERP بلا كتابة كلمة المرور مجدداً.
+   - لا تُحفظ كلمات المرور: تُستعمل لحظة الدخول فقط. */
+const https = require('https');
+function erpTarget() { try { return new URL(config.erpLocalUrl || 'https://127.0.0.1:5443'); } catch (_) { return new URL('https://127.0.0.1:5443'); } }
+function erpRequest(method, pth, headers) {
+  const u = erpTarget(), lib = u.protocol === 'https:' ? https : http;
+  return lib.request({ host: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), method, path: pth, headers, rejectUnauthorized: false, timeout: 120000 });
+}
+function erpCall(method, pth, json, token) {
+  return new Promise(resolve => {
+    const body = json ? Buffer.from(JSON.stringify(json)) : null;
+    const h = { Accept: 'application/json' };
+    if (body) { h['Content-Type'] = 'application/json'; h['Content-Length'] = body.length; }
+    if (token) h.Authorization = 'Bearer ' + token;
+    const r = erpRequest(method, pth, h);
+    r.on('response', res => { const ch = []; res.on('data', c => ch.push(c)); res.on('end', () => { let j = null; try { j = JSON.parse(Buffer.concat(ch).toString('utf8')); } catch (_) {} resolve({ status: res.statusCode, json: j }); }); });
+    r.on('timeout', () => r.destroy(new Error('timeout')));
+    r.on('error', e => resolve({ status: 0, json: null, error: String(e.message || e) }));
+    if (body) r.write(body); r.end();
+  });
+}
+const ssoCodes = new Map(); // رمز لمرة واحدة ← استجابة دخول ERP
+function newSso(loginResp) { const code = crypto.randomBytes(24).toString('hex'); ssoCodes.set(code, { resp: loginResp, exp: Date.now() + 10 * 60e3 }); return code; }
+function takeSso(code) { const v = ssoCodes.get(String(code || '')); ssoCodes.delete(String(code || '')); return v && v.exp > Date.now() ? v.resp : null; }
+setInterval(() => { const n = Date.now(); for (const [k, v] of ssoCodes) if (v.exp < n) ssoCodes.delete(k); }, 60e3).unref();
+function unitName(me) {
+  const o = me && (me.orgUnit || me.unit || me.department);
+  if (!o) return '';
+  return typeof o === 'string' ? o : (o.nameAr || o.name || o.title || o.label || '');
+}
+// تسجيل الدخول في ERP من جهة الخادم: يرجع { ok, resp, me } أو { error, message }
+async function erpLogin(userName, password, mfaCode) {
+  const r = await erpCall('POST', '/api/auth/login', { userName, password, mfaCode: mfaCode || undefined, device: 'ALTAKA-ALWATANIYAH App' });
+  if (r.status === 0) return { error: 'erp_unreachable', message: 'تعذّر الوصول إلى خادم منظومة ERP على الحاسبة الأم' };
+  if (r.status !== 200 || !r.json) return { error: 'invalid_credentials', message: (r.json && r.json.message) || 'اسم المستخدم أو كلمة المرور غير صحيحة' };
+  if (r.json.status === 'mfa_required') return { error: 'mfa_required', message: 'أدخل رمز التحقق الثنائي (MFA)' };
+  const me = await erpCall('GET', '/api/auth/me', null, r.json.accessToken);
+  return { ok: true, resp: r.json, me: (me.status === 200 && me.json) || { userName } };
+}
+// ربط حساب ERP بموظف البوابة (أو إنشاء موظف «مكتب» له)
+function employeeForErp(userName, me) {
+  const un = String(userName).toLowerCase(), eid = me && (me.employeeId || (me.employee && me.employee.id));
+  let e = db.employees.find(x => x.erpUser && String(x.erpUser).toLowerCase() === un)
+    || (eid ? db.employees.find(x => x.id === String(eid) || x.erpEmployeeId === String(eid)) : null)
+    || db.employees.find(x => String(x.code).toLowerCase() === un);
+  const name = (me && (me.displayName || me.name)) || userName;
+  if (!e) {
+    e = { id: uid('E'), code: 'erp:' + userName, name, department: unitName(me), jobTitle: (me && me.jobTitle) || '', phone: '', email: (me && me.email) || '', active: true, source: 'erp', createdAt: nowIso() };
+    db.employees.push(e);
+  } else if (e.source === 'erp') { e.name = name; e.department = unitName(me) || e.department; }
+  e.erpUser = userName; if (eid) e.erpEmployeeId = String(eid); e.updatedAt = nowIso();
+  return e;
+}
+
+/* --- تمرير واجهة ERP وطلباتها من الأصل نفسه --- */
+const ERP_BLOCK = /^\/(__proxy|__server|__local)(\/|$)/;
+function isErpPath(p) {
+  if (p === '/erp' || p.startsWith('/erp/')) return true;
+  if (p.startsWith('/api/')) return !/^\/api\/(mobile|admin|erp)(\/|$)/.test(p);
+  return /^\/(assets|ext)\//.test(p) || /^\/(ne-erp\.js|ne-shim\.js|icon\.png|favicon\.ico|__alive)$/.test(p);
+}
+const ERP_BRIDGE = '<script src="/app/erp-bridge.js"></script>';
+function proxyErp(req, res, p, bodyBuf) {
+  const url = new URL(req.url, 'http://x');
+  let target = p === '/erp' || p.startsWith('/erp/') ? '/' : p;
+  const isIndex = target === '/';
+  const h = Object.assign({}, req.headers);
+  ['host', 'origin', 'referer', 'connection', 'cf-connecting-ip', 'cf-ray', 'cf-visitor', 'cf-ipcountry', 'cdn-loop'].forEach(k => delete h[k]);
+  if (isIndex) delete h['accept-encoding'];
+  if (bodyBuf) h['content-length'] = bodyBuf.length;
+  const r = erpRequest(req.method, target + (isIndex ? '' : url.search), h);
+  r.on('response', up => {
+    const hh = Object.assign({}, up.headers);
+    if (isIndex && /text\/html/.test(up.headers['content-type'] || '')) {
+      const ch = []; up.on('data', c => ch.push(c)); up.on('end', () => {
+        let html = Buffer.concat(ch).toString('utf8');
+        html = html.includes('</body>') ? html.replace('</body>', ERP_BRIDGE + '</body>') : html + ERP_BRIDGE;
+        delete hh['content-length']; delete hh['content-encoding']; hh['cache-control'] = 'no-store';
+        res.writeHead(up.statusCode, hh); res.end(html);
+      });
+      return;
+    }
+    res.writeHead(up.statusCode, hh); up.pipe(res);
+  });
+  r.on('timeout', () => r.destroy(new Error('timeout')));
+  r.on('error', () => { if (!res.headersSent) send(res, 502, { error: 'erp_unreachable', message: 'تعذّر الوصول إلى خادم منظومة ERP على الحاسبة الأم' }); else res.end(); });
+  if (bodyBuf) { r.end(bodyBuf); } else if (req.method === 'GET' || req.method === 'HEAD') r.end(); else req.pipe(r);
+}
+async function handleErp(req, res, p) {
+  if (ERP_BLOCK.test(p) || (p.startsWith('/api/setup/') && req.method !== 'GET')) return send(res, 403, { error: 'forbidden' });
+  // دخول واحد: واجهة ERP ترسل رمز sso بدل كلمة المرور فتُعطى جلسة البوابة الجاهزة
+  if (req.method === 'POST' && p === '/api/auth/login') {
+    const buf = await readBody(req); let j = {}; try { j = JSON.parse(buf.toString('utf8') || '{}'); } catch (_) {}
+    if (j.userName === '__sso__') { const resp = takeSso(j.password); return resp ? send(res, 200, resp) : send(res, 401, { code: 'sso_expired', message: 'انتهت صلاحية رمز الدخول — سجّل الدخول مجدداً' }); }
+    return proxyErp(req, res, p, buf);
+  }
+  return proxyErp(req, res, p);
+}
+
 /* ---------------- الخادم ---------------- */
 const server = http.createServer(async (req, res) => {
   try {
@@ -666,6 +804,8 @@ const server = http.createServer(async (req, res) => {
       if (p.startsWith('/api/admin') || p.startsWith('/api/erp') || p.startsWith('/media/'))
         return send(res, 403, { error: 'local_only', message: 'لوحة الإدارة والربط مع ERP متاحان من شبكة الشركة فقط' });
     }
+    if (isErpPath(p) || ERP_BLOCK.test(p)) return await handleErp(req, res, p);
+    if (p === '/__back') { res.writeHead(302, { Location: '/app/' }); return res.end(); }
     for (const r of routes) {
       if (r.method !== req.method) continue;
       const m = r.re.exec(p); if (!m) continue;

@@ -270,14 +270,12 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        String cu = web.getUrl();
-        if (cu != null && !cu.contains("appassets.androidplatform.net")) {
-            // داخل منظومة ERP: رجوع داخلها، ثم إلى شاشة التطبيق الرئيسية
-            if (web.canGoBack()) web.goBack(); else web.loadUrl(START_URL);
-            return;
-        }
+        // التطبيق الموحد (المحلي أو من الخادم) يعالج الرجوع: ERP ← الأدوات ← الشاشات ← الخروج
         web.evaluateJavascript("window.appBack?String(window.appBack()):'false'", value -> {
-            if (value == null || !value.contains("true")) MainActivity.super.onBackPressed();
+            if (value != null && value.contains("true")) return;
+            String cu = web.getUrl();
+            boolean app = cu != null && (cu.contains("appassets.androidplatform.net") || cu.contains("/app/"));
+            if (!app && web.canGoBack()) web.goBack(); else MainActivity.super.onBackPressed();
         });
     }
 
@@ -296,16 +294,46 @@ public class MainActivity extends Activity {
             });
         }
 
+        /** حفظ أي ملف تنزّله منظومة ERP أو التطبيق في مجلد التنزيلات */
+        @JavascriptInterface
+        public String saveFile(String base64, String filename, String mime) {
+            return saveAny(base64, filename, mime == null || mime.isEmpty() ? "application/octet-stream" : mime);
+        }
+
+        /** مشاركة/فتح ملف (PDF، Excel، Word…) */
+        @JavascriptInterface
+        public String shareFile(String base64, String filename, String mime) {
+            try {
+                byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
+                File dir = new File(getCacheDir(), "share");
+                dir.mkdirs();
+                File f = new File(dir, cleanName(filename));
+                try (FileOutputStream fos = new FileOutputStream(f)) { fos.write(bytes); }
+                final Uri uri = FileProvider.getUriForFile(MainActivity.this, AUTHORITY, f);
+                final Intent view = new Intent(Intent.ACTION_VIEW);
+                view.setDataAndType(uri, mime == null || mime.isEmpty() ? "application/octet-stream" : mime);
+                view.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                runOnUiThread(() -> { try { startActivity(Intent.createChooser(view, "فتح الملف")); } catch (Exception ignored) { } });
+                return "ok";
+            } catch (Exception e) {
+                return "error: " + e.getMessage();
+            }
+        }
+
         /** حفظ تقرير PDF (تطبيقا الكشف والتنفيذ) في مجلد التنزيلات */
         @JavascriptInterface
         public String savePdf(String base64, String filename) {
+            return saveAny(base64, filename, "application/pdf");
+        }
+
+        private String saveAny(String base64, String filename, String mime) {
             try {
                 byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
                 String name = cleanName(filename);
                 if (Build.VERSION.SDK_INT >= 29) {
                     ContentValues v = new ContentValues();
                     v.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
-                    v.put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf");
+                    v.put(MediaStore.MediaColumns.MIME_TYPE, mime);
                     v.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/الطاقة الوطنية");
                     Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
                     if (uri == null) return "error: insert";
