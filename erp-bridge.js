@@ -8,7 +8,10 @@
 (function () {
   'use strict';
   var NE = window.__NE = window.__NE || {};
-  if (!document.querySelector('link[href^="/app/erp-mobile.css"]')) { var lk = document.createElement('link'); lk.rel = 'stylesheet'; lk.href = '/app/erp-mobile.css'; (document.head || document.documentElement).appendChild(lk); }
+  if (!document.querySelector('link[href^="/app/erp-mobile.css"]')) {
+    var me_ = document.currentScript && document.currentScript.src || '', v_ = (/[?&]v=([\w]+)/.exec(me_) || [])[1] || String(Date.now());
+    var lk = document.createElement('link'); lk.rel = 'stylesheet'; lk.href = '/app/erp-mobile.css?v=' + v_; (document.head || document.documentElement).appendChild(lk);
+  }
   var parentWin = null;
   try { if (window.parent !== window && window.parent.location.origin === location.origin) parentWin = window.parent; } catch (e) {}
 

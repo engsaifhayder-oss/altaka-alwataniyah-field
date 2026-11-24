@@ -333,7 +333,7 @@ function evaluateEvent(ev, emp) {
 }
 
 /* ---------------- الملفات الثابتة ---------------- */
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webm': 'video/webm', '.mp4': 'video/mp4', '.pdf': 'application/pdf', '.webp': 'image/webp', '.svg': 'image/svg+xml' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webm': 'video/webm', '.mp4': 'video/mp4', '.pdf': 'application/pdf', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json' };
 function serveFile(req, res, file) {
   fs.stat(file, (err, st) => {
     if (err || !st.isFile()) return send(res, 404, { error: 'not_found' });
@@ -345,7 +345,7 @@ function serveFile(req, res, file) {
       res.writeHead(206, { 'Content-Type': type, 'Content-Range': `bytes ${s}-${e}/${st.size}`, 'Accept-Ranges': 'bytes', 'Content-Length': e - s + 1, 'Access-Control-Allow-Origin': '*' });
       fs.createReadStream(file, { start: s, end: e }).pipe(res);
     } else {
-      res.writeHead(200, { 'Content-Type': type, 'Content-Length': st.size, 'Accept-Ranges': 'bytes', 'Access-Control-Allow-Origin': '*' });
+      res.writeHead(200, { 'Content-Type': type, 'Content-Length': st.size, 'Accept-Ranges': 'bytes', 'Access-Control-Allow-Origin': '*', 'Cache-Control': /\.(html|js|css|json|webmanifest)$/.test(file) ? 'no-cache' : 'max-age=86400' });
       fs.createReadStream(file).pipe(res);
     }
   });
@@ -781,11 +781,14 @@ function isErpPath(p) {
   if (/^\/api\/(mobile|admin|erp)(\/|$)/.test(p)) return false;
   return true;
 }
-const ERP_BRIDGE = '<script src="/app/erp-bridge.js"></script>';
+// رقم إصدار الملفات (من وقت تعديلها) حتى لا تبقى الهواتف على نسخة قديمة مخزّنة
+function appVer(f) { try { return Math.floor(fs.statSync(path.join(ROOT, 'public', 'app', f)).mtimeMs / 1000).toString(36); } catch (_) { return '1'; } }
+const ERP_BRIDGE_TAG = () => '<script src="/app/erp-bridge.js?v=' + appVer('erp-bridge.js') + '"></script>';
 // تطبيق على الشاشة الرئيسية للهواتف (آيفون/أندرويد) وواجهة مناسبة للهاتف
 const ERP_HEAD = '<link rel="manifest" href="/app/erp.webmanifest"><link rel="apple-touch-icon" href="/app/icon-180.png">' +
   '<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="الطاقة الوطنية">' +
-  '<meta name="theme-color" content="#194239"><link rel="stylesheet" href="/app/erp-mobile.css">';
+  '<meta name="theme-color" content="#194239">';
+const ERP_HEAD_TAG = () => ERP_HEAD + '<link rel="stylesheet" href="/app/erp-mobile.css?v=' + appVer('erp-mobile.css') + '">';
 function proxyErp(req, res, p, bodyBuf) {
   const url = new URL(req.url, 'http://x');
   let target = p === '/erp' || p.startsWith('/erp/') ? '/' : p;
@@ -800,8 +803,9 @@ function proxyErp(req, res, p, bodyBuf) {
     if (isIndex && /text\/html/.test(up.headers['content-type'] || '')) {
       const ch = []; up.on('data', c => ch.push(c)); up.on('end', () => {
         let html = Buffer.concat(ch).toString('utf8');
-        html = html.includes('</body>') ? html.replace('</body>', ERP_BRIDGE + '</body>') : html + ERP_BRIDGE;
-        if (html.includes('</head>')) html = html.replace('</head>', ERP_HEAD + '</head>');
+        const tag = ERP_BRIDGE_TAG();
+        html = html.includes('</body>') ? html.replace('</body>', tag + '</body>') : html + tag;
+        if (html.includes('</head>')) html = html.replace('</head>', ERP_HEAD_TAG() + '</head>');
         delete hh['content-length']; delete hh['content-encoding']; hh['cache-control'] = 'no-store';
         res.writeHead(up.statusCode, hh); res.end(html);
       });

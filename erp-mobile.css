@@ -14,6 +14,8 @@
 /* ===== الهاتف والشاشات الصغيرة ===== */
 @media (max-width:900px){
   /* القائمة الجانبية منزلقة */
+  #root > div > div.flex-1{width:100%!important;max-width:100vw}
+  html,body{overflow-x:hidden}
   #root > div > aside.no-print{position:fixed!important;top:0;bottom:0;inset-inline-start:0;z-index:50;width:272px!important;max-width:86vw;transform:translateX(110%);transition:transform .22s ease-out;box-shadow:0 0 40px rgba(0,0,0,.35)}
   html.ne-nav-open #root > div > aside.no-print{transform:none}
   #ne-shade{position:fixed;inset:0;z-index:45;background:rgba(10,30,24,.45)}
