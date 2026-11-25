@@ -1,9 +1,8 @@
 # ALTAKA-ALWATANIYAH - automatic update of the host computer (gateway + accounting)
 # Runs every hour as a scheduled task (SYSTEM). Downloads the latest release from GitHub,
 # copies the new program files (data is never touched) and restarts only what changed.
-param([switch]$Force)
+param([switch]$Force, [switch]$NoRestart, [string]$Root = 'C:\ALTAKA-ALWATANIYAH')
 $ErrorActionPreference = 'Stop'
-$Root = 'C:\ALTAKA-ALWATANIYAH'
 $Up = Join-Path $Root 'updater'
 $Repo = 'engsaifhayder-oss/altaka-alwataniyah-field'
 New-Item -ItemType Directory -Force $Up | Out-Null
@@ -59,7 +58,7 @@ try {
     $au = Join-Path $pkg 'auto-update.ps1'; if (Test-Path $au) { Copy-Item -Force $au (Join-Path $Up 'auto-update.ps1') }
     $rg = Join-Path $pkg 'restart-gateway.bat'; if ($p.name -eq 'gateway' -and (Test-Path $rg)) { Copy-Item -Force $rg (Join-Path $dst 'restart-gateway.bat') }
     if ($rc -ge 1 -or $Force) {
-      $ok = Restart-Part $p
+      $ok = if ($NoRestart) { 'skipped (test)' } else { Restart-Part $p }
       L "$($p.name): updated to '$($rel.name)' - restarted: $ok"
       $st.parts[$p.name] = "updated to $($rel.name) (restarted: $ok)"
       $st.lastUpdate = (Get-Date).ToString('s')
