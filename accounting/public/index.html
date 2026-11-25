@@ -105,6 +105,26 @@ tr.g td{font-weight:600;background:#fbfcfb}
 .ph .ti{text-align:left}.ph .ti b{font-size:20px;color:var(--dk)}
 .pt{width:100%;border-collapse:collapse;margin:8px 0}.pt th,.pt td{border:1px solid #bbb;padding:5px 7px}.pt th{background:#eef3f0}
 .psig{display:flex;justify-content:space-between;margin-top:40px}.psig div{text-align:center;width:30%;border-top:1px solid #777;padding-top:4px}
+/* محرّر ما قبل الطباعة */
+#pe{position:fixed;inset:0;z-index:60;background:#5d6b65;display:flex;flex-direction:row-reverse}
+#pe .pe-side{width:300px;flex-shrink:0;background:#fff;overflow:auto;padding:14px;border-right:1px solid var(--line)}
+#pe .pe-side h3{margin:0 0 4px;font-size:17px}
+#pe .pe-side h4{margin:14px 0 6px;font-size:13px;color:var(--mut)}
+#pe .pe-side label{display:flex;align-items:center;gap:8px;padding:4px 2px;font-size:14px;cursor:pointer}
+#pe .pe-side label input{width:auto}
+#pe .pe-side select{width:100%;padding:6px;border:1px solid var(--line);border-radius:8px}
+#pe .pe-hint{font-size:12px;color:var(--mut);margin:0 0 8px}
+#pe .pe-btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;position:sticky;bottom:-14px;background:#fff;padding:10px 0}
+#pe .pe-wrap{flex:1;overflow:auto;padding:24px}
+#pe .pe-page{background:#fff;color:#000;max-width:210mm;min-height:280mm;margin:0 auto;padding:12mm 10mm;box-shadow:0 4px 30px rgba(0,0,0,.35);font-size:13px;outline:none}
+#pe .pe-page.land{max-width:297mm;min-height:200mm}
+#pe .pe-page [contenteditable],#pe .pe-page:focus-within{outline:none}
+#pe .pe-page td:hover,#pe .pe-page p:hover{background:#fffbe6}
+#pe .pe-page .tw{max-height:none;overflow:visible;border:0}#pe .pe-page th{position:static}#pe .pe-page .btn{display:none}#pe .pe-page .card{border:0;padding:0}
+#pe .pe-tbl{border:1px solid var(--line);border-radius:8px;padding:6px 8px;margin-bottom:8px}
+#pe .pe-tbl b{font-size:12px;color:var(--mut)}
+@media (max-width:900px){#pe{flex-direction:column}#pe .pe-side{width:auto;max-height:45vh;border-right:0;border-bottom:1px solid var(--line)}#pe .pe-wrap{padding:10px}#pe .pe-page{padding:6mm 5mm;min-height:0}}
+@media print{#pe{display:none!important}}
 .pfoot{margin-top:20px;border-top:1px solid #ccc;padding-top:6px;font-size:11px;color:#666;text-align:center}
 </style>
 </head>
@@ -529,16 +549,61 @@ function pgPassword(){setTitle('تغيير كلمة المرور');$('#view').in
 
 /* ================= الطباعة ================= */
 function letterhead(title,no,date){return `<div class="ph"><div class="co"><b>${esc(set('company_ar'))}</b><small dir="ltr" style="text-align:right">${esc(set('company_en'))}</small><small>${esc(set('company_address'))} · ${esc(set('company_phone'))}</small></div><div class="ti"><b>${esc(title)}</b><div>رقم: ${esc(no)}</div><div>التاريخ: ${esc(date)}</div></div></div>`}
-function doPrint(html){$('#print').innerHTML=html+`<div class="pfoot">${esc(set('company_ar'))} — ${esc(set('company_address'))} — ${esc(set('company_phone'))}</div>`;setTimeout(()=>window.print(),80)}
-window.printInvoice=async id=>{const d=await api('/api/invoices/'+id);doPrint(letterhead(d.type==='sale'?'فاتورة بيع':'فاتورة شراء',d.no,d.date)+`<p>${d.type==='sale'?'السيد/السادة':'المورد'}: <b>${esc(d.party)}</b>${d.party_phone?' · '+esc(d.party_phone):''}${d.project?'<br>المشروع: '+esc(d.project):''}${d.status==='void'?'<br><b style="color:#c00">ملغاة</b>':''}</p>
+function doPrint(html){openPrintEditor(html+`<div class="pfoot" data-pe="foot">${esc(set('company_ar'))} — ${esc(set('company_address'))} — ${esc(set('company_phone'))}</div>`)}
+/* محرّر ما قبل الطباعة: إخفاء الأعمدة والأجزاء، وتعديل النص، وحجم الخط واتجاه الورقة، ويتذكّر اختياراتك لكل نوع مستند */
+const PE_PARTS={head:'ترويسة الشركة',party:'بيانات الزبون / المورد',words:'المبلغ كتابةً',account:'الحساب',method:'طريقة الدفع',project:'المشروع',notes:'الملاحظات',terms:'الشروط والأحكام',sig:'التواقيع',foot:'تذييل الصفحة'};
+function peGrid(t){const rows=[...t.rows],occ=[];let n=0;
+  rows.forEach((tr,r)=>{let c=0;[...tr.cells].forEach(td=>{while(occ[r]&&occ[r][c])c++;
+    if(td.dataset.cs==null)td.dataset.cs=td.colSpan||1;const sp=+td.dataset.cs,rs=td.rowSpan||1;td._c=c;td._s=sp;
+    for(let k=0;k<rs;k++){occ[r+k]=occ[r+k]||[];for(let j=0;j<sp;j++)occ[r+k][c+j]=1}c+=sp});n=Math.max(n,c)});
+  return n}
+function peCols(t){const n=peGrid(t),hr=t.rows[0];if(!hr)return null;const cells=[...hr.cells];
+  if(cells.length<3||cells.some(c=>c.tagName!=='TH')||cells.some(c=>c._s!==1)||cells.length!==n)return null;
+  return cells.map((c,i)=>(c.textContent.trim()||('عمود '+(i+1))))}
+function peApplyCols(t,hidden){peGrid(t);[...t.rows].forEach(tr=>[...tr.cells].forEach(td=>{let v=0;for(let j=0;j<td._s;j++)if(!hidden.has(td._c+j))v++;
+  if(!v){td.style.display='none'}else{td.style.display='';td.colSpan=v}}))}
+function openPrintEditor(html){document.getElementById('pe')?.remove();
+  const o=document.createElement('div');o.id='pe';
+  o.innerHTML=`<div class="pe-side"><h3>تعديل قبل الطباعة</h3><p class="pe-hint">اختر ما يظهر في الورقة. يمكنك أيضاً النقر على أي نص في الورقة وتعديله أو حذفه مباشرة.</p><div id="peCtl"></div>
+   <h4>الورقة</h4><label>حجم الخط <select id="peFont" style="width:auto;margin-inline-start:auto">${[11,12,13,14,15,16].map(v=>`<option value="${v}">${v}</option>`).join('')}</select></label>
+   <label>الاتجاه <select id="peOr" style="width:auto;margin-inline-start:auto"><option value="p">عمودي</option><option value="l">أفقي</option></select></label>
+   <label><input type="checkbox" id="peRem" checked> تذكّر هذه الإعدادات لهذا النوع</label>
+   <div class="pe-btns"><button class="btn pri" id="peGo">🖨 طباعة</button><button class="btn" id="peNote">+ ملاحظة</button><button class="btn" id="peReset">الوضع الأصلي</button><button class="btn" id="peX">إلغاء</button></div></div>
+   <div class="pe-wrap"><div class="pe-page" id="peDoc" contenteditable="true" spellcheck="false"></div></div>`;
+  document.body.appendChild(o);const D=$('#peDoc');D.innerHTML=html;
+  D.querySelectorAll('.ph .co').forEach(e=>e.dataset.pe=e.dataset.pe||'head');D.querySelectorAll('.psig').forEach(e=>e.dataset.pe=e.dataset.pe||'sig');
+  D.querySelectorAll('a,button,input,select').forEach(e=>{if(e.tagName==='A')e.removeAttribute('href');else if(e.tagName==='BUTTON')e.remove();else e.disabled=true});
+  const kind=(D.querySelector('.ph .ti b')?.textContent||'مستند').trim(),key='pe.'+kind;
+  const saved=LS.get(key,{}),tables=[...D.querySelectorAll('table')].map(t=>({t,cols:peCols(t)})).filter(x=>x.cols);
+  const parts=[...new Set([...D.querySelectorAll('[data-pe]')].map(e=>e.dataset.pe))].filter(k=>PE_PARTS[k]);
+  let h='';
+  tables.forEach((x,i)=>{const hid=new Set((saved.cols||{})[i]||[]);h+=`<div class="pe-tbl"><b>${tables.length>1?'الجدول '+(i+1)+' – ':''}الأعمدة الظاهرة</b>${x.cols.map((c,j)=>`<label><input type="checkbox" data-t="${i}" data-c="${j}" ${hid.has(c)?'':'checked'}> ${esc(c)}</label>`).join('')}</div>`});
+  if(parts.length)h+=`<h4>أجزاء المستند</h4>`+parts.map(k=>`<label><input type="checkbox" data-p="${k}" ${(saved.parts||{})[k]===false?'':'checked'}> ${PE_PARTS[k]}</label>`).join('');
+  $('#peCtl').innerHTML=h;$('#peFont').value=saved.font||13;$('#peOr').value=saved.or||'p';
+  const apply=()=>{tables.forEach((x,i)=>{const hid=new Set([...o.querySelectorAll(`input[data-t="${i}"]`)].filter(c=>!c.checked).map(c=>+c.dataset.c));peApplyCols(x.t,hid)});
+    o.querySelectorAll('input[data-p]').forEach(c=>D.querySelectorAll(`[data-pe="${c.dataset.p}"]`).forEach(e=>e.style.display=c.checked?'':'none'));
+    D.style.fontSize=$('#peFont').value+'px';D.classList.toggle('land',$('#peOr').value==='l')};
+  o.querySelectorAll('#peCtl input,#peFont,#peOr').forEach(e=>e.onchange=apply);apply();
+  const close=()=>{o.remove();document.removeEventListener('keydown',kd)},kd=e=>{if(e.key==='Escape')close()};document.addEventListener('keydown',kd);
+  $('#peX').onclick=close;
+  $('#peReset').onclick=()=>{LS.del(key);close();openPrintEditor(html)};
+  $('#peNote').onclick=()=>{const p=document.createElement('p');p.textContent='اكتب ملاحظتك هنا';const at=D.querySelector('.psig')||D.querySelector('.pfoot');D.insertBefore(p,at);
+    const r=document.createRange();r.selectNodeContents(p);const sel=getSelection();sel.removeAllRanges();sel.addRange(r);p.focus?.()};
+  $('#peGo').onclick=()=>{if($('#peRem').checked){const cols={};tables.forEach((x,i)=>{cols[i]=[...o.querySelectorAll(`input[data-t="${i}"]`)].filter(c=>!c.checked).map(c=>x.cols[+c.dataset.c])});
+      const pp={};o.querySelectorAll('input[data-p]').forEach(c=>pp[c.dataset.p]=c.checked);LS.set(key,{cols,parts:pp,font:+$('#peFont').value,or:$('#peOr').value})}
+    const P=$('#print');P.innerHTML=D.innerHTML;P.style.fontSize=D.style.fontSize;
+    let st=document.getElementById('peSize');if(!st){st=document.createElement('style');st.id='peSize';document.head.appendChild(st)}
+    st.textContent=`@media print{@page{size:A4 ${$('#peOr').value==='l'?'landscape':'portrait'};margin:12mm 10mm}}`;
+    close();setTimeout(()=>window.print(),80)}}
+window.printInvoice=async id=>{const d=await api('/api/invoices/'+id);doPrint(letterhead(d.type==='sale'?'فاتورة بيع':'فاتورة شراء',d.no,d.date)+`<p data-pe="party">${d.type==='sale'?'السيد/السادة':'المورد'}: <b>${esc(d.party)}</b>${d.party_phone?' · '+esc(d.party_phone):''}${d.project?'<br>المشروع: '+esc(d.project):''}${d.status==='void'?'<br><b style="color:#c00">ملغاة</b>':''}</p>
   <table class="pt"><tr><th>#</th><th>البيان</th><th>الكمية</th><th>السعر</th><th>المجموع</th></tr>${d.lines.map((l,i)=>`<tr><td>${i+1}</td><td>${esc(l.description)}</td><td>${num(l.qty)}</td><td>${num(l.unit_price)}</td><td>${num(l.total)}</td></tr>`).join('')}
   <tr><td colspan=4>المجموع</td><td>${num(d.subtotal)}</td></tr>${d.discount?`<tr><td colspan=4>الخصم</td><td>${num(d.discount)}</td></tr>`:''}${d.tax?`<tr><td colspan=4>ضريبة/رسوم</td><td>${num(d.tax)}</td></tr>`:''}<tr><th colspan=4>الإجمالي</th><th>${money(d.total,d.currency)}</th></tr></table>
-  <p><b>${esc(tafqeet(d.total,d.currency))}</b></p>${d.notes?`<p>ملاحظات: ${esc(d.notes)}</p>`:''}${set('invoice_terms')?`<p style="white-space:pre-line">${esc(set('invoice_terms'))}</p>`:''}<div class="psig"><div>المحاسب</div><div>المستلم</div><div>المدير</div></div>`)};
-window.printQuote=async id=>{const q=await api('/api/quotations/'+id);doPrint(letterhead('عرض سعر',q.no,q.date)+`<p>السيد/السادة: <b>${esc(q.party||q.customer_name||'')}</b>${q.customer_phone||q.party_phone?' · '+esc(q.customer_phone||q.party_phone):''}${q.valid_until?'<br>العرض صالح لغاية: '+q.valid_until:''}</p>
+  <p data-pe="words"><b>${esc(tafqeet(d.total,d.currency))}</b></p>${d.notes?`<p data-pe="notes">ملاحظات: ${esc(d.notes)}</p>`:''}${set('invoice_terms')?`<p data-pe="terms" style="white-space:pre-line">${esc(set('invoice_terms'))}</p>`:''}<div class="psig"><div>المحاسب</div><div>المستلم</div><div>المدير</div></div>`)};
+window.printQuote=async id=>{const q=await api('/api/quotations/'+id);doPrint(letterhead('عرض سعر',q.no,q.date)+`<p data-pe="party">السيد/السادة: <b>${esc(q.party||q.customer_name||'')}</b>${q.customer_phone||q.party_phone?' · '+esc(q.customer_phone||q.party_phone):''}${q.valid_until?'<br>العرض صالح لغاية: '+q.valid_until:''}</p>
   <table class="pt"><tr><th>#</th><th>البيان</th><th>الكمية</th><th>السعر</th><th>المجموع</th></tr>${q.lines.map((l,i)=>`<tr><td>${i+1}</td><td>${esc(l.description)}</td><td>${num(l.qty)}</td><td>${num(l.unit_price)}</td><td>${num(l.total)}</td></tr>`).join('')}
-  ${q.discount?`<tr><td colspan=4>الخصم</td><td>${num(q.discount)}</td></tr>`:''}<tr><th colspan=4>الإجمالي</th><th>${money(q.total,q.currency)}</th></tr></table><p><b>${esc(tafqeet(q.total,q.currency))}</b></p>${q.terms?`<p style="white-space:pre-line">${esc(q.terms)}</p>`:''}<div class="psig"><div>قسم المبيعات</div><div></div><div>المدير</div></div>`)};
-window.printVoucher=async id=>{const v=await api('/api/vouchers/'+id);doPrint(letterhead(v.type==='receipt'?'سند قبض':'سند صرف',v.no,v.date)+`<table class="pt"><tr><th style="width:30%">المبلغ</th><td style="font-size:17px"><b>${money(v.amount,v.currency)}</b></td></tr><tr><th>المبلغ كتابةً</th><td>${esc(tafqeet(v.amount,v.currency))}</td></tr>
-  <tr><th>${v.type==='receipt'?'استلمنا من':'صُرف إلى'}</th><td>${esc(v.payee||v.party||'')}</td></tr><tr><th>وذلك عن</th><td>${esc(v.memo||'')}</td></tr><tr><th>الحساب</th><td>${esc(accName(v.counter_account))}</td></tr><tr><th>طريقة الدفع</th><td>${{cash:'نقداً',cheque:'صك',transfer:'حوالة مصرفية'}[v.method]||''} ${esc(v.cheque_no||'')} — ${esc(accName(v.cash_account))}</td></tr>${v.project?`<tr><th>المشروع</th><td>${esc(v.project)}</td></tr>`:''}${v.status==='void'?'<tr><th>الحالة</th><td style="color:#c00">ملغى</td></tr>':''}</table>
+  ${q.discount?`<tr><td colspan=4>الخصم</td><td>${num(q.discount)}</td></tr>`:''}<tr><th colspan=4>الإجمالي</th><th>${money(q.total,q.currency)}</th></tr></table><p data-pe="words"><b>${esc(tafqeet(q.total,q.currency))}</b></p>${q.terms?`<p data-pe="terms" style="white-space:pre-line">${esc(q.terms)}</p>`:''}<div class="psig"><div>قسم المبيعات</div><div></div><div>المدير</div></div>`)};
+window.printVoucher=async id=>{const v=await api('/api/vouchers/'+id);doPrint(letterhead(v.type==='receipt'?'سند قبض':'سند صرف',v.no,v.date)+`<table class="pt"><tr><th style="width:30%">المبلغ</th><td style="font-size:17px"><b>${money(v.amount,v.currency)}</b></td></tr><tr data-pe="words"><th>المبلغ كتابةً</th><td>${esc(tafqeet(v.amount,v.currency))}</td></tr>
+  <tr><th>${v.type==='receipt'?'استلمنا من':'صُرف إلى'}</th><td>${esc(v.payee||v.party||'')}</td></tr><tr><th>وذلك عن</th><td>${esc(v.memo||'')}</td></tr><tr data-pe="account"><th>الحساب</th><td>${esc(accName(v.counter_account))}</td></tr><tr data-pe="method"><th>طريقة الدفع</th><td>${{cash:'نقداً',cheque:'صك',transfer:'حوالة مصرفية'}[v.method]||''} ${esc(v.cheque_no||'')} — ${esc(accName(v.cash_account))}</td></tr>${v.project?`<tr data-pe="project"><th>المشروع</th><td>${esc(v.project)}</td></tr>`:''}${v.status==='void'?'<tr><th>الحالة</th><td style="color:#c00">ملغى</td></tr>':''}</table>
   <div class="psig"><div>المحاسب</div><div>${v.type==='receipt'?'أمين الصندوق':'المستلم'}</div><div>المدير</div></div>`)};
 window.printStock=async id=>{const d=await api('/api/stock/'+id);doPrint(letterhead(STK[d.type],d.no,d.date)+`<p>المخزن: ${esc(d.warehouse||'')}${d.to_warehouse?' ← '+esc(d.to_warehouse):''}${d.project?' · المشروع: '+esc(d.project):''}<br>${esc(d.memo||'')}</p><table class="pt"><tr><th>#</th><th>المادة</th><th>الكمية</th><th>الوحدة</th></tr>${d.lines.filter(l=>!(d.type==='transfer'&&l.qty>0)).map((l,i)=>`<tr><td>${i+1}</td><td>${esc(l.item)}</td><td>${num(Math.abs(l.qty))}</td><td>${esc(l.unit||'')}</td></tr>`).join('')}</table><div class="psig"><div>أمين المخزن</div><div>المستلم</div><div>المدير</div></div>`)};
 window.addEventListener('afterprint',()=>{$('#print').innerHTML=''});
