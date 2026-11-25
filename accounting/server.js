@@ -100,7 +100,7 @@ if (!one('SELECT 1 x FROM accounts LIMIT 1')) {
 
 /* ترحيلات: أعمدة جديدة وحسابات الصناديق */
 function addCol(t, c, type) { if (!all(`PRAGMA table_info(${t})`).some(x => x.name === c)) db.exec(`ALTER TABLE ${t} ADD COLUMN ${c} ${type}`); }
-addCol('items', 'pack_unit', 'TEXT'); addCol('items', 'pack_qty', 'REAL');
+addCol('items', 'price_wholesale', 'REAL'); addCol('items', 'price_agent', 'REAL'); addCol('items', 'pack_unit', 'TEXT'); addCol('items', 'pack_qty', 'REAL');
 addCol('invoice_lines', 'pack_unit', 'TEXT'); addCol('invoice_lines', 'pack_count', 'REAL'); addCol('invoice_lines', 'pack_price', 'REAL');
 if (!getSet('mig_cash_v1')) tx(() => {
   const add = [['1813', 'السنايا – دينار', '181'], ['1814', 'السنايا – دولار', '181'], ['1833', 'البطاقة الرئيسية', '183'], ['1834', 'البطاقة الثانوية', '183'], ['1835', 'حساب التوفير', '183']];
@@ -682,7 +682,7 @@ route('POST', '/api/items', 'store', async (req, u) => {
   b.unit = String(b.unit || '').trim() || 'قطعة';
   b.pack_unit = String(b.pack_unit || '').trim() || null; b.pack_qty = b.pack_unit ? Number(b.pack_qty) : null;
   if (b.pack_unit && !(b.pack_qty > 1)) throw new Bad('حدّد عدد ال' + b.unit + ' في ال' + b.pack_unit + ' (أكبر من 1)');
-  const id = upsert('items', ['code', 'name', 'unit', 'category', 'stock', 'inv_account', 'revenue_account', 'sale_price', 'sale_currency', 'min_qty', 'notes', 'active', 'pack_unit', 'pack_qty'], b);
+  const id = upsert('items', ['code', 'name', 'unit', 'category', 'stock', 'inv_account', 'revenue_account', 'sale_price', 'price_wholesale', 'price_agent', 'sale_currency', 'min_qty', 'notes', 'active', 'pack_unit', 'pack_qty'], b);
   audit(u, b.id ? 'update' : 'create', 'item', id, b); return { ok: true, id };
 });
 route('POST', '/api/warehouses', 'store', async (req, u) => { const b = await readJson(req); if (!b.name) throw new Bad('اسم المخزن مطلوب'); b.active = b.active === false ? 0 : 1; const id = upsert('warehouses', ['name', 'notes', 'active'], b); audit(u, 'save', 'warehouse', id, b); return { ok: true, id }; });
