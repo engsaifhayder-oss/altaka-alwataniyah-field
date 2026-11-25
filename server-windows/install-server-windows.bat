@@ -64,6 +64,12 @@ echo [3/4] Autostart (scheduled task "ALTAKA-ALWATANIYAH Gateway")
 schtasks /Create /F /TN "ALTAKA-ALWATANIYAH Gateway" /SC ONLOGON /RL HIGHEST /TR "wscript.exe \"%DST%\run-hidden.vbs\"" >nul
 if errorlevel 1 (echo  Could not create the scheduled task.) else echo  OK
 schtasks /Run /TN "ALTAKA-ALWATANIYAH Gateway" >nul 2>&1
+echo.
+echo  Automatic updates: scheduled task "ALTAKA-ALWATANIYAH Updater" checks GitHub every hour
+if not exist "C:\ALTAKA-ALWATANIYAH\updater" mkdir "C:\ALTAKA-ALWATANIYAH\updater"
+copy /Y "%~dp0auto-update.ps1" "C:\ALTAKA-ALWATANIYAH\updater\auto-update.ps1" >nul
+schtasks /Create /F /TN "ALTAKA-ALWATANIYAH Updater" /SC HOURLY /RU SYSTEM /RL HIGHEST /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\ALTAKA-ALWATANIYAH\updater\auto-update.ps1" >nul
+if errorlevel 1 (echo  Could not create the update task.) else echo  OK - new versions install by themselves
 netsh advfirewall firewall delete rule name="ALTAKA-ALWATANIYAH Gateway" >nul 2>&1
 netsh advfirewall firewall add rule name="ALTAKA-ALWATANIYAH Gateway" dir=in action=allow protocol=TCP localport=8780 profile=private >nul
 timeout /t 4 /nobreak >nul

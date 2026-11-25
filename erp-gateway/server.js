@@ -771,6 +771,7 @@ route('GET', '/api/admin/all', (req, res, url) => {
     equipment: db.equipment,
     tasks: db.tasks.map(t => Object.assign({}, t, { siteCode: makeCode('T', taskKey(t)) })),
     events: db.events, forms: db.forms, obstacles: db.obstacles, reports: db.reports,
+    updater: updaterStatus(),
     attSchedules: db.attSchedules, attSessions: db.attSessions.slice(-400).map(x => Object.assign({}, x, { code: attCode(x.key) })), attScans: db.attScans.slice(-1500)
   });
 });
@@ -871,6 +872,20 @@ function attScanRows() {
   }));
   return rows;
 }
+/* التحديث التلقائي للحاسبة الأم (مهمة «ALTAKA-ALWATANIYAH Updater» كل ساعة) */
+function updaterStatus() {
+  const f = path.join(ROOT, '..', 'updater', 'status.json');
+  try { return Object.assign({ installed: true }, JSON.parse(fs.readFileSync(f, 'utf8').replace(/^\uFEFF/, ''))); }
+  catch (_) { return { installed: fs.existsSync(path.join(ROOT, '..', 'updater', 'auto-update.ps1')) }; }
+}
+route('POST', '/api/admin/update-now', (req, res, url) => {
+  if (!adminAuth(req, url)) return send(res, 401, { error: 'unauthorized' });
+  if (process.platform !== 'win32') return send(res, 400, { error: 'unsupported', message: 'التحديث التلقائي لنسخة ويندوز فقط' });
+  require('child_process').execFile('schtasks', ['/Run', '/TN', 'ALTAKA-ALWATANIYAH Updater'], { windowsHide: true }, (err, out, er) => {
+    if (err) return send(res, 500, { error: 'failed', message: 'تعذّر تشغيل مهمة التحديث — شغّل install-server-windows.bat كمسؤول مرة واحدة لتثبيتها' });
+    send(res, 200, { ok: true });
+  });
+});
 route('GET', '/api/admin/attendance.csv', (req, res, url) => {
   if (!adminAuth(req, url)) return send(res, 401, 'unauthorized');
   send(res, 200, csv(attendanceRows()), { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="ALTAKA-ALWATANIYAH_attendance.csv"' });

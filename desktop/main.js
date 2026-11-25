@@ -1,5 +1,5 @@
 // ALTAKA-ALWATANIYAH – التطبيق الموحد (نسخة ويندوز وماك): الأدوات الميدانية + منظومة ERP عبر Cloudflare
-const { app, BrowserWindow, session, shell, Menu, systemPreferences } = require('electron');
+const { app, BrowserWindow, session, shell, Menu, systemPreferences, dialog } = require('electron');
 const path = require('path');
 
 // نطاقات الشركة التي تُفتح داخل التطبيق (منظومة ERP والبوابة عبر Cloudflare)
@@ -48,6 +48,45 @@ function createWindow() {
   win.webContents.on('did-fail-load', (e, code, desc, url, isMain) => { if (isMain && COMPANY.test(url)) win.loadFile(path.join(__dirname, 'app', 'index.html')); });
 }
 
+
+/* ---------- التحديث التلقائي لبرنامج ويندوز (النسخة المثبّتة) ----------
+   الواجهة والخصائص تصل من خادم الحاسبة الأم مباشرة، وهذا يحدّث غلاف البرنامج نفسه عند صدور إصدار جديد. */
+const fs = require('fs'), os = require('os'), https = require('https'), { spawn } = require('child_process');
+const REPO = 'engsaifhayder-oss/altaka-alwataniyah-field';
+function builtAt() { try { return Date.parse(JSON.parse(fs.readFileSync(path.join(__dirname, 'build-info.json'), 'utf8')).built) || 0; } catch (_) { return 0; } }
+function get(url, file, n = 0) {
+  return new Promise((res, rej) => {
+    https.get(url, { headers: { 'User-Agent': 'altaka-desktop', Accept: file ? 'application/octet-stream' : 'application/json' } }, r => {
+      if (r.statusCode >= 300 && r.statusCode < 400 && r.headers.location && n < 5) { r.resume(); return get(r.headers.location, file, n + 1).then(res, rej); }
+      if (r.statusCode !== 200) { r.resume(); return rej(new Error('HTTP ' + r.statusCode)); }
+      if (file) { const w = fs.createWriteStream(file); r.pipe(w); w.on('finish', () => w.close(() => res(file))); w.on('error', rej); }
+      else { let d = ''; r.setEncoding('utf8'); r.on('data', c => d += c); r.on('end', () => { try { res(JSON.parse(d)); } catch (e) { rej(e); } }); }
+    }).on('error', rej).setTimeout(10 * 60e3, function () { this.destroy(new Error('timeout')); });
+  });
+}
+let pendingSetup = null;
+async function checkUpdate(win) {
+  const built = builtAt();
+  if (!built || !app.isPackaged) return;
+  if (process.platform === 'win32' && process.env.PORTABLE_EXECUTABLE_DIR) return; // النسخة المحمولة: تُستبدل يدوياً
+  const rel = await get('https://api.github.com/repos/' + REPO + '/releases/latest');
+  const want = process.platform === 'win32' ? 'altaka-alwataniyah-field-setup.exe' : process.platform === 'darwin' ? 'altaka-alwataniyah-field-mac-' + (process.arch === 'arm64' ? 'arm64' : 'x64') + '.dmg' : null;
+  const a = want && (rel.assets || []).find(x => x.name === want);
+  if (!a || Date.parse(a.updated_at) < built + 60 * 60e3) return; // لا يوجد إصدار أحدث
+  if (process.platform === 'darwin') {
+    const r = await dialog.showMessageBox(win, { type: 'info', buttons: ['تنزيل التحديث', 'لاحقاً'], defaultId: 0, title: 'تحديث جديد', message: 'يتوفر إصدار جديد من برنامج الطاقة الوطنية (' + (rel.name || '') + ').', detail: 'نزّل الملف وافتحه ثم اسحب البرنامج إلى مجلد Applications.' });
+    if (r.response === 0) shell.openExternal(a.browser_download_url);
+    return;
+  }
+  const file = path.join(os.tmpdir(), 'altaka-setup-' + Date.parse(a.updated_at) + '.exe');
+  if (!fs.existsSync(file) || fs.statSync(file).size !== a.size) await get(a.browser_download_url, file + '.part', 0).then(() => fs.renameSync(file + '.part', file));
+  pendingSetup = file;
+  const r = await dialog.showMessageBox(win, { type: 'info', buttons: ['تثبيت الآن', 'عند إغلاق البرنامج'], defaultId: 0, cancelId: 1, title: 'تحديث جديد', message: 'تم تنزيل إصدار جديد من برنامج الطاقة الوطنية (' + (rel.name || '') + ').', detail: 'يستغرق التثبيت أقل من دقيقة ويعيد فتح البرنامج تلقائياً.' });
+  if (r.response === 0) { runSetup(); app.quit(); }
+}
+function runSetup() { if (!pendingSetup) return; const f = pendingSetup; pendingSetup = null; try { spawn(f, ['/S', '--force-run'], { detached: true, stdio: 'ignore' }).unref(); } catch (_) {} }
+app.on('will-quit', runSetup);
+
 app.whenReady().then(async () => {
   // ماك: طلب إذن الكاميرا والمايكروفون من النظام
   if (process.platform === 'darwin') {
@@ -57,6 +96,8 @@ app.whenReady().then(async () => {
   session.defaultSession.setPermissionRequestHandler((wc, perm, cb) => cb(ok.includes(perm)));
   session.defaultSession.setPermissionCheckHandler((wc, perm) => ok.includes(perm));
   createWindow();
+  setTimeout(() => checkUpdate(BrowserWindow.getAllWindows()[0]).catch(() => {}), 15000);
+  setInterval(() => { if (!pendingSetup) checkUpdate(BrowserWindow.getAllWindows()[0]).catch(() => {}); }, 6 * 3600e3);
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 app.on('window-all-closed', () => app.quit());
