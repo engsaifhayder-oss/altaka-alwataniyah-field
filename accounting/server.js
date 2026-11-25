@@ -98,6 +98,20 @@ if (!one('SELECT 1 x FROM accounts LIMIT 1')) {
   });
 }
 
+/* ترحيلات: أعمدة جديدة وحسابات الصناديق */
+function addCol(t, c, type) { if (!all(`PRAGMA table_info(${t})`).some(x => x.name === c)) db.exec(`ALTER TABLE ${t} ADD COLUMN ${c} ${type}`); }
+addCol('items', 'pack_unit', 'TEXT'); addCol('items', 'pack_qty', 'REAL');
+addCol('invoice_lines', 'pack_unit', 'TEXT'); addCol('invoice_lines', 'pack_count', 'REAL'); addCol('invoice_lines', 'pack_price', 'REAL');
+if (!getSet('mig_cash_v1')) tx(() => {
+  const add = [['1813', 'السنايا – دينار', '181'], ['1814', 'السنايا – دولار', '181'], ['1833', 'البطاقة الرئيسية', '183'], ['1834', 'البطاقة الثانوية', '183'], ['1835', 'حساب التوفير', '183']];
+  add.forEach(([c, n, pa]) => { if (!one('SELECT 1 x FROM accounts WHERE code=?', c)) run('INSERT INTO accounts(code,name,parent,type,is_group) VALUES(?,?,?,?,0)', c, n, pa, 'asset'); });
+  // يُلغى الحساب الجاري لدى المصرف (يُعطَّل؛ ويبقى ظاهراً فقط إن كان عليه رصيد)
+  ['1831', '1832'].forEach(c => run('UPDATE accounts SET active=0 WHERE code=?', c));
+  setSet('acc_bank_iqd', '1833');
+  setSet('dash_cash', '1811,1812,1833,1834,1835,1813,1814');
+  setSet('mig_cash_v1', '1');
+});
+
 /* ---------------- كلمات المرور والجلسات ---------------- */
 function hashPass(p) { const s = crypto.randomBytes(16).toString('hex'); return s + ':' + crypto.scryptSync(String(p), s, 32).toString('hex'); }
 function checkPass(p, h) {
@@ -215,8 +229,16 @@ const itemInv = it => it.inv_account || getSet('acc_inventory');
 
 /* ---------------- المستندات ---------------- */
 function cleanLines(lines) {
-  return (lines || []).map(l => ({ item_id: l.item_id ? Number(l.item_id) : null, description: String(l.description || '').trim(), qty: Number(l.qty) || 0, unit_price: r2(l.unit_price), account_code: l.account_code || null }))
-    .filter(l => l.qty && (l.item_id || l.description));
+  return (lines || []).map(l => {
+    const o = { item_id: l.item_id ? Number(l.item_id) : null, description: String(l.description || '').trim(), qty: Number(l.qty) || 0, unit_price: r2(l.unit_price), account_code: l.account_code || null };
+    // الكمية بوحدة التعبئة (كارتون/ربطة…): تُخزَّن بالقطع، والسعر للتعبئة يبقى دقيقاً
+    const pc = Number(l.pack_count) || 0, it = o.item_id && pc > 0 ? one('SELECT pack_unit, pack_qty FROM items WHERE id=?', o.item_id) : null;
+    if (it && it.pack_unit && it.pack_qty > 1) {
+      o.pack_unit = it.pack_unit; o.pack_count = pc; o.pack_price = r2(l.pack_price);
+      o.qty = pc * it.pack_qty; o.unit_price = r2(pc * o.pack_price) / o.qty;
+    }
+    return o;
+  }).filter(l => l.qty && (l.item_id || l.description));
 }
 function createInvoice(b, user) {
   const type = b.type === 'purchase' ? 'purchase' : 'sale';
@@ -228,13 +250,14 @@ function createInvoice(b, user) {
     const proj = b.project_id ? Number(b.project_id) : null;
     const lines = cleanLines(b.lines); if (!lines.length) throw new Bad('أضف سطراً واحداً على الأقل');
     let sub = 0;
-    lines.forEach(l => { if (l.qty <= 0) throw new Bad('الكمية يجب أن تكون أكبر من صفر'); l.total = r2(l.qty * l.unit_price); sub += l.total; l.item = l.item_id ? one('SELECT * FROM items WHERE id=?', l.item_id) : null; if (l.item_id && !l.item) throw new Bad('مادة غير موجودة'); if (!l.description && l.item) l.description = l.item.name; });
+    lines.forEach(l => { if (l.qty <= 0) throw new Bad('الكمية يجب أن تكون أكبر من صفر'); l.total = l.pack_unit ? r2(l.pack_count * l.pack_price) : r2(l.qty * l.unit_price); sub += l.total; l.item = l.item_id ? one('SELECT * FROM items WHERE id=?', l.item_id) : null; if (l.item_id && !l.item) throw new Bad('مادة غير موجودة'); if (!l.description && l.item) l.description = l.item.name; });
     sub = r2(sub); const disc = r2(b.discount), tax = r2(b.tax), total = r2(sub - disc + tax);
     if (disc < 0 || disc > sub) throw new Bad('الخصم غير صحيح');
     const no = nextNo(type === 'sale' ? 'SI' : 'PI', date);
     const id = Number(run('INSERT INTO invoices(type,no,date,due_date,party_id,project_id,warehouse_id,currency,rate,subtotal,discount,tax,total,notes,supplier_ref,quote_id,status,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
       type, no, date, b.due_date || null, p.id, proj, wh, cur, rate, sub, disc, tax, total, b.notes || null, b.supplier_ref || null, b.quote_id || null, 'posted', user.username, nowIso()).lastInsertRowid);
-    const insL = db.prepare('INSERT INTO invoice_lines(invoice_id,item_id,description,qty,unit_price,total,account_code,unit_cost) VALUES(?,?,?,?,?,?,?,?)');
+    const insL0 = db.prepare('INSERT INTO invoice_lines(invoice_id,item_id,description,qty,unit_price,total,account_code,unit_cost,pack_unit,pack_count,pack_price) VALUES(?,?,?,?,?,?,?,?,?,?,?)');
+    let curL = null; const insL = { run: (...a) => insL0.run(...a, curL && curL.pack_unit || null, curL && curL.pack_count || null, curL && curL.pack_price || null) };
     const jl = []; const pAcc = partyAccount(p);
     let costIqd = 0;
     if (type === 'sale') {
@@ -249,7 +272,7 @@ function createInvoice(b, user) {
           jl.push({ account: getSet('acc_cogs'), debit: 1, iqd: c, project_id: proj, memo: 'كلفة ' + l.description });
           jl.push({ account: itemInv(l.item), credit: 1, iqd: c, project_id: proj, memo: 'إخراج مخزني ' + l.description });
         }
-        insL.run(id, l.item_id, l.description, l.qty, l.unit_price, l.total, rev, uc);
+        curL = l; insL.run(id, l.item_id, l.description, l.qty, l.unit_price, l.total, rev, uc);
         jl.push({ account: rev, credit: l.total, project_id: proj, memo: l.description });
       });
       if (disc) jl.push({ account: getSet('acc_discount_allowed'), debit: disc, project_id: proj, memo: 'خصم مسموح به' });
@@ -265,11 +288,11 @@ function createInvoice(b, user) {
         if (l.item && l.item.stock) {
           const uc = (net * rate) / l.qty;
           move(date, l.item.id, wh, l.qty, uc, 'invoice', id, proj);
-          insL.run(id, l.item_id, l.description, l.qty, l.unit_price, l.total, itemInv(l.item), uc);
+          curL = l; insL.run(id, l.item_id, l.description, l.qty, l.unit_price, l.total, itemInv(l.item), uc);
           jl.push({ account: itemInv(l.item), debit: net, project_id: proj, memo: l.description });
         } else {
           const ex = l.account_code || getSet('acc_purchases_service'); account(ex);
-          insL.run(id, l.item_id, l.description, l.qty, l.unit_price, l.total, ex, null);
+          curL = l; insL.run(id, l.item_id, l.description, l.qty, l.unit_price, l.total, ex, null);
           jl.push({ account: ex, debit: net, project_id: proj, memo: l.description });
         }
       });
@@ -515,9 +538,11 @@ const REPORTS = {
   },
   cash(q) {
     const to = q.to || today();
-    const codes = all("SELECT code,name FROM accounts WHERE is_group=0 AND (code LIKE '181%' OR code LIKE '183%') ORDER BY code");
+    const order = String(getSet('dash_cash') || '').split(',').filter(Boolean);
+    const codes = all("SELECT code,name,active FROM accounts WHERE is_group=0 AND (code LIKE '181%' OR code LIKE '183%') ORDER BY code")
+      .sort((a, b) => ((order.indexOf(a.code) + 1) || 999) - ((order.indexOf(b.code) + 1) || 999));
     return { to, rows: codes.map(a => { const r = one(`SELECT COALESCE(SUM(l.debit-l.credit),0) b, COALESCE(SUM(l.fc_debit-l.fc_credit),0) f, MAX(l.currency) cur FROM journal_lines l JOIN journals j ON j.id=l.journal_id WHERE ${LIVE} AND l.account_code=? AND j.date<=?`, a.code, to);
-      return Object.assign(a, { balance: r2(r.b), usd: /دولار/.test(a.name) ? r2(r.f) : null }); }) };
+      return Object.assign(a, { balance: r2(r.b), usd: /دولار/.test(a.name) ? r2(r.f) : null }); }).filter(a => a.active || Math.abs(a.balance) > 0.004) };
   },
   dashboard() {
     const y = today().slice(0, 4) + '-01-01', m = today().slice(0, 7) + '-01', t = today();
@@ -654,7 +679,10 @@ route('POST', '/api/items', 'store', async (req, u) => {
   if (b.code && one('SELECT 1 x FROM items WHERE code=? AND id<>?', b.code, Number(b.id) || 0)) throw new Bad('رمز المادة مستخدم');
   b.stock = b.stock === false || b.stock === 0 || b.stock === '0' ? 0 : 1; b.active = b.active === false || b.active === 0 ? 0 : 1;
   if (b.id && !b.stock && one('SELECT 1 x FROM stock_moves WHERE item_id=? AND void=0 LIMIT 1', Number(b.id))) throw new Bad('للمادة حركات مخزنية ولا يمكن جعلها خدمية');
-  const id = upsert('items', ['code', 'name', 'unit', 'category', 'stock', 'inv_account', 'revenue_account', 'sale_price', 'sale_currency', 'min_qty', 'notes', 'active'], b);
+  b.unit = String(b.unit || '').trim() || 'قطعة';
+  b.pack_unit = String(b.pack_unit || '').trim() || null; b.pack_qty = b.pack_unit ? Number(b.pack_qty) : null;
+  if (b.pack_unit && !(b.pack_qty > 1)) throw new Bad('حدّد عدد ال' + b.unit + ' في ال' + b.pack_unit + ' (أكبر من 1)');
+  const id = upsert('items', ['code', 'name', 'unit', 'category', 'stock', 'inv_account', 'revenue_account', 'sale_price', 'sale_currency', 'min_qty', 'notes', 'active', 'pack_unit', 'pack_qty'], b);
   audit(u, b.id ? 'update' : 'create', 'item', id, b); return { ok: true, id };
 });
 route('POST', '/api/warehouses', 'store', async (req, u) => { const b = await readJson(req); if (!b.name) throw new Bad('اسم المخزن مطلوب'); b.active = b.active === false ? 0 : 1; const id = upsert('warehouses', ['name', 'notes', 'active'], b); audit(u, 'save', 'warehouse', id, b); return { ok: true, id }; });
@@ -694,6 +722,20 @@ const listQ = (table, q, extra, ps) => {
   const from = q.from || '1900-01-01', to = q.to || '9999-12-31';
   return all(`SELECT d.*, p.name party, pr.name project FROM ${table} d LEFT JOIN parties p ON p.id=d.party_id LEFT JOIN projects pr ON pr.id=d.project_id WHERE d.date BETWEEN ? AND ? ${extra || ''} ORDER BY d.date DESC, d.id DESC LIMIT 1000`, from, to, ...(ps || []));
 };
+/* البحث العام: الفواتير + الزبائن + الموردون (حسب صلاحيات المستخدم) */
+route('GET', '/api/search', 'auth', (req, u, url) => {
+  const q = String(url.searchParams.get('q') || '').trim().slice(0, 60); if (q.length < 2) return { q, invoices: [], parties: [], quotes: [] };
+  const like = '%' + q.replace(/[%_]/g, '') + '%', types = [];
+  if (can(u, 'sales')) types.push('sale'); if (can(u, 'purchases')) types.push('purchase');
+  const invoices = types.length ? all(`SELECT DISTINCT d.id, d.type, d.no, d.date, d.total, d.currency, d.status, pa.name party FROM invoices d LEFT JOIN parties pa ON pa.id=d.party_id
+    LEFT JOIN invoice_lines l ON l.invoice_id=d.id WHERE d.type IN (${types.map(() => '?').join(',')}) AND (d.no LIKE ? OR pa.name LIKE ? OR pa.phone LIKE ? OR d.notes LIKE ? OR d.supplier_ref LIKE ? OR l.description LIKE ?)
+    ORDER BY d.date DESC, d.id DESC LIMIT 60`, ...types, like, like, like, like, like, like) : [];
+  const kinds = []; if (can(u, 'sales')) kinds.push('customer'); if (can(u, 'purchases')) kinds.push('supplier'); if (kinds.length) kinds.push('both');
+  const parties = kinds.length ? all(`SELECT id, kind, name, phone, address FROM parties WHERE kind IN (${kinds.map(() => '?').join(',')}) AND (name LIKE ? OR phone LIKE ? OR address LIKE ?) ORDER BY name LIMIT 40`, ...kinds, like, like, like) : [];
+  const quotes = can(u, 'sales') ? all(`SELECT d.id, d.no, d.date, d.total, d.currency, d.status, COALESCE(pa.name, d.customer_name) party FROM quotations d LEFT JOIN parties pa ON pa.id=d.party_id
+    WHERE d.no LIKE ? OR pa.name LIKE ? OR d.customer_name LIKE ? OR d.customer_phone LIKE ? ORDER BY d.date DESC LIMIT 30`, like, like, like, like) : [];
+  return { q, invoices, parties, quotes };
+});
 route('GET', '/api/invoices', 'auth', (req, u, url) => { const q = Object.fromEntries(url.searchParams); const t = q.type === 'purchase' ? 'purchase' : 'sale'; need(u, t === 'sale' ? 'sales' : 'purchases');
   return listQ('invoices', q, 'AND d.type=?' + (q.party_id ? ' AND d.party_id=' + Number(q.party_id) : '') + (q.project_id ? ' AND d.project_id=' + Number(q.project_id) : ''), [t]); });
 route('GET', '/api/invoices/:id', 'auth', (req, u, url, p) => {
@@ -712,7 +754,7 @@ route('POST', '/api/quotations', 'sales', async (req, u) => {
   const b = await readJson(req);
   if (!b.party_id && !b.customer_name) throw new Bad('اختر الزبون أو اكتب اسمه');
   const lines = cleanLines(b.lines); if (!lines.length) throw new Bad('أضف سطراً واحداً على الأقل');
-  lines.forEach(l => { l.total = r2(l.qty * l.unit_price); if (!l.description && l.item_id) l.description = (one('SELECT name FROM items WHERE id=?', l.item_id) || {}).name || ''; });
+  lines.forEach(l => { l.total = l.pack_unit ? r2(l.pack_count * l.pack_price) : r2(l.qty * l.unit_price); if (!l.description && l.item_id) l.description = (one('SELECT name FROM items WHERE id=?', l.item_id) || {}).name || ''; });
   const sub = r2(lines.reduce((s, l) => s + l.total, 0)), disc = r2(b.discount);
   const cur = b.currency === 'USD' ? 'USD' : 'IQD';
   const row = { date: b.date || today(), valid_until: b.valid_until || null, party_id: b.party_id || null, customer_name: b.customer_name || null, customer_phone: b.customer_phone || null, project_id: b.project_id || null, currency: cur, rate: rateOf(cur, b.rate), lines: JSON.stringify(lines), subtotal: sub, discount: disc, total: r2(sub - disc), terms: b.terms || null, status: ['draft', 'sent', 'accepted', 'rejected'].includes(b.status) ? b.status : 'draft', updated_at: nowIso() };
