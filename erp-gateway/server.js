@@ -70,7 +70,8 @@ const config = loadConfig();
 /* ---------------- قاعدة البيانات (ملف JSON) ---------------- */
 const EMPTY_DB = {
   employees: [], warehouses: [], equipment: [], tasks: [],
-  events: [], forms: [], obstacles: [], reports: [], sessions: [], adminSessions: [], notifications: []
+  events: [], forms: [], obstacles: [], reports: [], sessions: [], adminSessions: [], notifications: [],
+  attSchedules: [], attSessions: [], attScans: []
 };
 let db;
 let saveTimer = null;
@@ -78,6 +79,7 @@ try { db = Object.assign({}, EMPTY_DB, JSON.parse(fs.readFileSync(DB_FILE, 'utf8
 catch (_) { db = JSON.parse(JSON.stringify(EMPTY_DB)); seed(); save(); }
 db.tasks.forEach(t => { if (!t.no) t.no = nextNo(db.tasks, 1001); });
 if (!Array.isArray(db.notifications)) db.notifications = [];
+['attSchedules', 'attSessions', 'attScans'].forEach(k => { if (!Array.isArray(db[k])) db[k] = []; });
 
 function save() {
   clearTimeout(saveTimer);
@@ -259,6 +261,84 @@ function noticesFor(emp) {
   }));
 }
 
+
+/* ---------------- الحضور بالباركود المجدول (موظفو التنفيذ خارج الشركة) ----------------
+   الإدارة تحدد: المسؤول الذي يستلم الرمز، والموظفين الذين يمسحونه، وأوقات الإصدار، ومدة الصلاحية.
+   في الوقت المحدد يُصدر الخادم رمزاً جديداً لا يمكن تخمينه ويُرسَل تلقائياً إلى تطبيق المسؤول،
+   ويمسحه الموظفون مع سيلفي وموقع. الرمز يرفضه الخادم بعد انتهاء صلاحيته. */
+const BG_MS = 3 * 3600e3; // توقيت بغداد ثابت +3
+function bgParts(ms) { const d = new Date((ms == null ? Date.now() : ms) + BG_MS); return { date: d.toISOString().slice(0, 10), hm: d.toISOString().slice(11, 16), dow: d.getUTCDay() }; }
+function bgToUtc(date, hm) { return new Date(Date.parse(date + 'T' + hm + ':00Z') - BG_MS); }
+function hmOf(iso) { return bgParts(Date.parse(iso)).hm; }
+// رمز قصير (13 حرفاً) ليُقرأ بسهولة من شاشة هاتف المسؤول: A + مفتاح عشوائي + توقيع
+function attCode(key) { return 'A' + key + sign('A', key).slice(0, 6); }
+function parseAttCode(code) {
+  const m = /^A([0-9A-F]{6})([0-9A-F]{6})$/.exec(String(code || '').trim().toUpperCase());
+  if (!m) return null; return { key: m[1], valid: sign('A', m[1]).slice(0, 6) === m[2] };
+}
+function attNewKey() { let k; do { k = crypto.randomBytes(3).toString('hex').toUpperCase(); } while (db.attSessions.some(x => x.key === k && Date.parse(x.expiresAt) > Date.now() - 86400e3)); return k; }
+function attTicket(sessId, empId, at) { return crypto.createHmac('sha256', config.secret).update('AT|' + sessId + '|' + empId + '|' + at).digest('hex').slice(0, 16); }
+function attEmployees(sc) { return (sc.employeeIds || []).map(id => db.employees.find(e => e.id === id)).filter(e => e && e.active !== false); }
+function attNotify(codes, title, body) {
+  if (!codes.length) return;
+  db.notifications.push({ id: uid('N'), createdAt: nowIso(), reads: {}, title, body, from: 'نظام الحضور', fromUnit: '', priority: 'high', audience: 'list', codes: codes.map(String), active: true, kind: 'att' });
+  if (db.notifications.length > 2000) db.notifications = db.notifications.slice(-2000);
+}
+function attIssue(sc, label, validMin, startMs, slotTime) {
+  const st = startMs || Date.now(), vm = Math.max(1, Math.min(24 * 60, Number(validMin) || sc.validMin || 30));
+  const resp = db.employees.find(e => e.id === sc.responsibleId);
+  const ses = { id: uid('AS'), key: attNewKey(), scheduleId: sc.id, scheduleName: sc.name, place: sc.place || '', label: label || 'حضور',
+    date: bgParts(st).date, slot: slotTime || null, responsibleId: sc.responsibleId, employeeIds: (sc.employeeIds || []).slice(), radiusM: sc.radiusM || 300,
+    startsAt: new Date(st).toISOString(), expiresAt: new Date(st + vm * 60e3).toISOString(), createdAt: nowIso() };
+  db.attSessions.push(ses);
+  if (db.attSessions.length > 5000) db.attSessions = db.attSessions.slice(-5000);
+  const until = hmOf(ses.expiresAt);
+  if (resp) attNotify([resp.code], 'رمز ' + ses.label + ' – ' + sc.name, 'وصل رمز ' + ses.label + ' الجديد. افتح التطبيق واعرض الرمز للموظفين ليمسحوه. صالح حتى الساعة ' + until + '.');
+  attNotify(attEmployees(sc).map(e => e.code), 'سجّل ' + ses.label + ' – ' + sc.name, 'امسح رمز ' + ses.label + ' لدى ' + (resp ? resp.name : 'المسؤول') + ' والتقط سيلفي قبل الساعة ' + until + '.');
+  save(); return ses;
+}
+function attTick() {
+  const now = Date.now(), P = bgParts(now);
+  db.attSchedules.filter(sc => sc.active !== false && sc.responsibleId).forEach(sc => {
+    if (Array.isArray(sc.days) && sc.days.length && !sc.days.includes(P.dow)) return;
+    (sc.slots || []).forEach(sl => {
+      if (!/^\d\d:\d\d$/.test(sl.time || '')) return;
+      const st = bgToUtc(P.date, sl.time).getTime(), vm = Number(sc.validMin) || 30;
+      if (now < st || now >= st + vm * 60e3) return; // خارج نافذة الصلاحية (لا يُصدر رمز فائت)
+      if (db.attSessions.some(x => x.scheduleId === sc.id && x.date === P.date && x.slot === sl.time)) return;
+      attIssue(sc, sl.label, vm, st, sl.time);
+    });
+  });
+}
+setInterval(attTick, 20e3).unref(); setTimeout(attTick, 3000).unref();
+function attScanOf(ses, empId) { return db.attScans.find(x => x.sessionId === ses.id && x.employeeId === empId && x.status !== 'rejected'); }
+function attFor(emp) {
+  const now = Date.now(), live = db.attSessions.filter(x => Date.parse(x.expiresAt) > now && Date.parse(x.startsAt) <= now + 60e3);
+  return {
+    issue: live.filter(x => x.responsibleId === emp.id).map(x => {
+      const list = x.employeeIds.map(id => db.employees.find(e => e.id === id)).filter(Boolean);
+      return { id: x.id, code: attCode(x.key), label: x.label, name: x.scheduleName, place: x.place, startsAt: x.startsAt, expiresAt: x.expiresAt,
+        people: list.map(e => ({ name: e.name, done: !!attScanOf(x, e.id) })) };
+    }),
+    due: live.filter(x => x.employeeIds.includes(emp.id) && !attScanOf(x, emp.id)).map(x => {
+      const r = db.employees.find(e => e.id === x.responsibleId) || {};
+      return { id: x.id, label: x.label, name: x.scheduleName, place: x.place, responsible: r.name || '', expiresAt: x.expiresAt };
+    })
+  };
+}
+function attCheck(emp, code) {
+  const c = parseAttCode(code);
+  if (!c) return { error: 'هذا ليس رمز حضور. امسح الرمز الظاهر في تطبيق المسؤول.' };
+  if (!c.valid) return { error: 'رمز غير صالح (التوقيع لا يطابق).' };
+  const ses = db.attSessions.find(x => x.key === c.key);
+  if (!ses) return { error: 'رمز غير معروف.' };
+  if (Date.now() < Date.parse(ses.startsAt) - 60e3) return { error: 'لم يبدأ وقت هذا الرمز بعد.' };
+  if (Date.now() > Date.parse(ses.expiresAt)) return { error: 'انتهت صلاحية هذا الرمز (الساعة ' + hmOf(ses.expiresAt) + '). اطلب من المسؤول الرمز الجديد.' };
+  if (!ses.employeeIds.includes(emp.id)) return { error: 'لست ضمن الموظفين المحددين لهذا الرمز. راجع المسؤول أو الإدارة.' };
+  if (attScanOf(ses, emp.id)) return { error: 'سجّلت ' + ses.label + ' بهذا الرمز مسبقاً.' };
+  return { ses };
+}
+
 /* ---------------- منطق المهام والخطوات ---------------- */
 const STEPS = [
   { k: 'wh_in', t: 'الحضور – الوصول إلى المخزن', code: 'W' },
@@ -283,7 +363,8 @@ function bootstrapFor(emp) {
     equipment: db.equipment.filter(x => x.active !== false),
     tasks: can(emp, 'attendance') ? db.tasks.filter(t => t.status !== 'cancelled' && t.status !== 'closed' && (t.assignees || []).includes(emp.id)).map(taskForMobile) : [],
     perms: permsOf(emp), permNames: PERMS, erpUrl: config.erpPublicUrl || '', erpUser: emp.erpUser || '', erpPath: '/erp/',
-    notifications: noticesFor(emp)
+    notifications: noticesFor(emp),
+    att: attFor(emp)
   };
 }
 
@@ -469,7 +550,7 @@ route('POST', '/api/mobile/logout', (req, res) => {
 function mobileUpload(kind, sub, build) {
   return async (req, res) => {
     const a = mobileAuth(req); if (!a) return send(res, 401, { error: 'unauthorized' });
-    const NEED = { events: 'attendance', obstacles: 'obstacles' }[kind];
+    const NEED = { events: 'attendance', obstacles: 'obstacles', attScans: 'attendance' }[kind];
     if (NEED && !can(a.employee, NEED)) return send(res, 403, { error: 'forbidden', message: 'ليست لديك صلاحية: ' + PERMS[NEED] });
     let body;
     try { body = await readBody(req); } catch (e) { return send(res, 413, { error: 'too_large' }); }
@@ -513,6 +594,45 @@ route('POST', '/api/mobile/events', mobileUpload('events', 'selfies', (rec, emp)
     if (rec.step === 'wh_return') { t.status = 'completed'; t.completedAt = nowIso(); }
     t.updatedAt = nowIso();
   }
+  return flags;
+}));
+
+/* الحضور بالرمز المجدول */
+route('GET', '/api/mobile/att', (req, res) => {
+  const a = mobileAuth(req); if (!a) return send(res, 401, { error: 'unauthorized' });
+  send(res, 200, Object.assign({ serverTime: nowIso() }, attFor(a.employee)));
+});
+route('POST', '/api/mobile/att-check', async (req, res) => {
+  const a = mobileAuth(req); if (!a) return send(res, 401, { error: 'unauthorized' });
+  if (!can(a.employee, 'attendance')) return send(res, 403, { error: 'forbidden', message: 'ليست لديك صلاحية: ' + PERMS.attendance });
+  const b = await readJson(req); const r = attCheck(a.employee, b.code);
+  if (r.error) return send(res, 400, { error: 'invalid', message: r.error });
+  const at = nowIso(), resp = db.employees.find(e => e.id === r.ses.responsibleId) || {};
+  send(res, 200, { ok: true, sessionId: r.ses.id, label: r.ses.label, name: r.ses.scheduleName, place: r.ses.place, responsible: resp.name || '', expiresAt: r.ses.expiresAt, checkedAt: at, ticket: attTicket(r.ses.id, a.employee.id, at) });
+});
+route('POST', '/api/mobile/att-issuer-gps', async (req, res) => {
+  const a = mobileAuth(req); if (!a) return send(res, 401, { error: 'unauthorized' });
+  const b = await readJson(req); const ses = db.attSessions.find(x => x.id === b.id && x.responsibleId === a.employee.id);
+  if (ses && b.gps && b.gps.lat != null && (!ses.issuerGps || (b.gps.accuracy || 999) < (ses.issuerGps.accuracy || 999))) { ses.issuerGps = { lat: +b.gps.lat, lng: +b.gps.lng, accuracy: b.gps.accuracy, at: nowIso() }; save(); }
+  send(res, 200, { ok: true });
+});
+route('POST', '/api/mobile/attScans', mobileUpload('attScans', 'selfies', (rec, emp) => {
+  const flags = [], ses = db.attSessions.find(x => x.id === rec.sessionId);
+  rec.status = 'accepted';
+  if (!ses) { rec.status = 'rejected'; return ['جلسة حضور غير معروفة']; }
+  Object.assign(rec, { scheduleId: ses.scheduleId, scheduleName: ses.scheduleName, label: ses.label, date: ses.date, responsibleId: ses.responsibleId });
+  const okTicket = rec.ticket && rec.checkedAt && attTicket(ses.id, emp.id, rec.checkedAt) === rec.ticket;
+  const c = parseAttCode(rec.code);
+  if (!okTicket || !c || !c.valid || c.key !== ses.key) { rec.status = 'rejected'; flags.push('لم يُتحقق من الرمز عبر الخادم'); }
+  else if (Date.parse(rec.checkedAt) > Date.parse(ses.expiresAt)) { rec.status = 'rejected'; flags.push('الرمز منتهي الصلاحية'); }
+  if (!ses.employeeIds.includes(emp.id)) { rec.status = 'rejected'; flags.push('الموظف ليس ضمن قائمة هذا الرمز'); }
+  if (rec.status === 'accepted' && db.attScans.some(x => x !== rec && x.sessionId === ses.id && x.employeeId === emp.id && x.status === 'accepted')) { rec.status = 'rejected'; flags.push('تسجيل مكرر'); }
+  if (!rec.files.some(f => f.field === 'selfie')) flags.push('لا توجد صورة سيلفي');
+  const g = rec.gps || {};
+  if (g.lat == null) flags.push('الموقع غير متوفر');
+  else if (ses.issuerGps) { rec.distanceM = distM(g.lat, g.lng, ses.issuerGps.lat, ses.issuerGps.lng); if (rec.distanceM > (ses.radiusM || 300) + (g.accuracy || 0)) flags.push('بعيد عن موقع المسؤول (' + rec.distanceM + ' م)'); }
+  if (g.mock) flags.push('موقع وهمي (Mock Location)');
+  if (rec.status === 'accepted' && Date.now() - Date.parse(ses.expiresAt) > 5 * 60e3) flags.push('وصل متأخراً بسبب ضعف الاتصال (مُسح في الوقت)');
   return flags;
 }));
 route('POST', '/api/mobile/forms', mobileUpload('forms', 'forms'));
@@ -583,7 +703,8 @@ route('GET', '/api/admin/all', (req, res, url) => {
     warehouses: db.warehouses.map(w => Object.assign({}, w, { code: makeCode('W', w.id) })),
     equipment: db.equipment,
     tasks: db.tasks.map(t => Object.assign({}, t, { siteCode: makeCode('T', taskKey(t)) })),
-    events: db.events, forms: db.forms, obstacles: db.obstacles, reports: db.reports
+    events: db.events, forms: db.forms, obstacles: db.obstacles, reports: db.reports,
+    attSchedules: db.attSchedules, attSessions: db.attSessions.slice(-400).map(x => Object.assign({}, x, { code: attCode(x.key) })), attScans: db.attScans.slice(-1500)
   });
 });
 
@@ -641,6 +762,44 @@ crud('tasks', 'T', (it, b, isNew) => {
   if (isNew) it.status = 'assigned'; else if (b.status) it.status = b.status;
 });
 
+
+crud('attSchedules', 'SC', (it, b) => {
+  if (!String(b.name || '').trim()) return 'اسم الجدول مطلوب (مثل: فريق تنفيذ مشروع ...)';
+  if (!db.employees.some(e => e.id === b.responsibleId)) return 'اختر الموظف المسؤول الذي يستلم الرمز';
+  const ids = (Array.isArray(b.employeeIds) ? b.employeeIds : []).filter(id => db.employees.some(e => e.id === id));
+  if (!ids.length) return 'اختر الموظفين الذين سيمسحون الرمز';
+  const slots = (Array.isArray(b.slots) ? b.slots : []).filter(x => /^\d\d:\d\d$/.test(x.time || '')).map(x => ({ time: x.time, label: String(x.label || 'حضور').slice(0, 40) }));
+  const vm = Number(b.validMin); if (!(vm >= 1 && vm <= 24 * 60)) return 'مدة الصلاحية بين 1 دقيقة و24 ساعة';
+  Object.assign(it, { name: String(b.name).trim(), place: String(b.place || '').trim(), responsibleId: b.responsibleId, employeeIds: ids, slots,
+    days: (Array.isArray(b.days) ? b.days : []).map(Number).filter(d => d >= 0 && d <= 6), validMin: vm, radiusM: num(b.radiusM) || 300, active: b.active !== false });
+});
+route('POST', '/api/admin/att-issue', async (req, res, url) => {
+  if (!adminAuth(req, url)) return send(res, 401, { error: 'unauthorized' });
+  const b = await readJson(req); const sc = db.attSchedules.find(x => x.id === b.scheduleId && x.active !== false);
+  if (!sc) return send(res, 404, { error: 'not_found', message: 'الجدول غير موجود' });
+  const ses = attIssue(sc, b.label || 'حضور', b.validMin || sc.validMin);
+  send(res, 200, { ok: true, session: Object.assign({}, ses, { code: attCode(ses.key) }) });
+});
+route('POST', '/api/admin/att-cancel', async (req, res, url) => {
+  if (!adminAuth(req, url)) return send(res, 401, { error: 'unauthorized' });
+  const b = await readJson(req); const ses = db.attSessions.find(x => x.id === b.id);
+  if (ses && Date.parse(ses.expiresAt) > Date.now()) { ses.expiresAt = nowIso(); ses.cancelled = true; save(); }
+  send(res, 200, { ok: true });
+});
+route('GET', '/api/admin/att-scans.csv', (req, res, url) => {
+  if (!adminAuth(req, url)) return send(res, 401, 'unauthorized');
+  const rows = [['التاريخ', 'الوقت', 'الجدول', 'النوع', 'كود الموظف', 'اسم الموظف', 'المسؤول', 'الحالة', 'المسافة عن المسؤول م', 'خط العرض', 'خط الطول', 'الملاحظات', 'رابط الخريطة']];
+  db.attScans.slice().sort((a, b) => (a.checkedAt > b.checkedAt ? 1 : -1)).forEach(x => {
+    const e = db.employees.find(y => y.id === x.employeeId) || {}, r = db.employees.find(y => y.id === x.responsibleId) || {}, g = x.gps || {}, P = bgParts(Date.parse(x.checkedAt || x.receivedAt));
+    rows.push([P.date, P.hm, x.scheduleName, x.label, e.code, e.name, r.name, x.status === 'accepted' ? 'مقبول' : 'مرفوض', x.distanceM, g.lat, g.lng, (x.flags || []).join(' | '), g.lat != null ? `https://maps.google.com/?q=${g.lat},${g.lng}` : '']);
+  });
+  // الغائبون: موظفو كل جلسة منتهية لم يمسحوا
+  db.attSessions.filter(x => !x.cancelled && Date.parse(x.expiresAt) < Date.now()).forEach(x => x.employeeIds.forEach(id => {
+    if (attScanOf(x, id)) return; const e = db.employees.find(y => y.id === id) || {}, r = db.employees.find(y => y.id === x.responsibleId) || {};
+    rows.push([x.date, hmOf(x.startsAt), x.scheduleName, x.label, e.code, e.name, r.name, 'لم يسجّل', '', '', '', '', '']);
+  }));
+  send(res, 200, csv(rows), { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="ALTAKA-ALWATANIYAH_qr-attendance.csv"' });
+});
 route('GET', '/api/admin/attendance.csv', (req, res, url) => {
   if (!adminAuth(req, url)) return send(res, 401, 'unauthorized');
   send(res, 200, csv(attendanceRows()), { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="ALTAKA-ALWATANIYAH_attendance.csv"' });

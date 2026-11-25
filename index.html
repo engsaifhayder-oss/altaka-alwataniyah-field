@@ -129,6 +129,15 @@ textarea{min-height:90px;resize:vertical}
 .toolbar button{font:inherit;font-size:15px;border:0;border-radius:11px;background:var(--lime);color:var(--dk);font-weight:700;padding:8px 14px}
 .toolbar b{flex:1;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tool iframe{flex:1;width:100%;border:0;background:#fff}
+.attc{background:#fff;border:2px solid var(--dk);border-radius:16px;padding:14px;margin-bottom:12px}
+.attc.due{border-color:var(--lime);background:#f6fbe9}
+.attc h3{margin:0 0 4px;font-size:17px;color:var(--dk)}.attc .mut{font-size:13px}
+.attc .bc{background:#fff;padding:10px 4px;margin:10px 0 4px;border-radius:10px;border:1px solid var(--line)}.attc .bc svg{width:100%;height:110px;display:block}
+.attc .cd{font-weight:700;color:var(--dk);font-size:15px}.attc .cd.end{color:var(--err)}
+.attc .ppl{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}.attc .ppl span{font-size:12px;border-radius:20px;padding:2px 9px;background:#eef2ef;color:var(--mut)}.attc .ppl span.on{background:#e3f4d0;color:var(--ok);font-weight:600}
+#attFull{position:fixed;inset:0;z-index:90;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:18px;text-align:center}
+#attFull .bcw{width:100%;max-width:900px;background:#fff;padding:0 4px}#attFull svg{width:100%;height:34vh;display:block}
+@media (orientation:portrait){#attFull .bcw{width:72vh;max-width:none;transform:rotate(90deg);margin:calc(36vh - 22vw) 0}#attFull svg{height:44vw}}#attFull h2{margin:0 0 6px;color:var(--dk)}#attFull .cd{font-size:22px;font-weight:700;margin:12px 0;color:var(--dk)}
 .tiles2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
 .tile.big{background:linear-gradient(135deg,#fff 0%,#f1f8e4 100%);border-color:#cfe39a}
 @media(max-width:360px){.grid{grid-template-columns:1fr}.tiles{grid-template-columns:1fr 1fr}}
@@ -242,7 +251,11 @@ function decode(src){const sw=src.videoWidth||src.naturalWidth||src.width,sh=src
     const y0=Math.max(0,y-2),n=Math.min(5,H-y0);const d=cx.getImageData(0,y0,W,n).data;g.fill(0);for(let j=0;j<n;j++){const o=j*W*4;for(let x=0;x<W;x++)g[x]+=(d[o+x*4]*.299+d[o+x*4+1]*.587+d[o+x*4+2]*.114)/n}
     const t=scanLine(g,W);if(t){seen[t]=(seen[t]||0)+1;if(seen[t]>=2)return t}}
   return null}
-return {decode,decodeRuns,scanLine};
+/** نفس القراءة بعد تدوير الصورة 90° (باركود عمودي على شاشة المسؤول) */
+const rc=document.createElement('canvas');
+function decodeRot(src){const sw=src.videoWidth||src.naturalWidth||src.width,sh=src.videoHeight||src.naturalHeight||src.height;if(!sw||!sh)return null;
+  const sc=Math.min(1,1280/sh);rc.width=Math.round(sh*sc);rc.height=Math.round(sw*sc);const c=rc.getContext('2d',{willReadFrequently:true});c.setTransform(1,0,0,1,0,0);c.translate(rc.width,0);c.rotate(Math.PI/2);c.drawImage(src,0,0,sw*sc,sh*sc);return decode(rc)}
+return {decode,decodeRot,decodeRuns,scanLine};
 })();
 
 </script>
@@ -406,7 +419,7 @@ async function webScan(title){return new Promise(async(resolve,reject)=>{CAM.res
   try{await camStart('environment',false,true)}catch(e){CAM.reject=null;camErr(e);return reject(e)}
   let det=null;if('BarcodeDetector' in window){try{det=new BarcodeDetector({formats:['code_128','qr_code']})}catch(_){}}
   let busy=false;CAM.scanIv=setInterval(async()=>{if(busy)return;busy=true;try{let v=null;const vid=$('#camV');
-    if(det){const r=await det.detect(vid);if(r&&r[0])v=r[0].rawValue}if(!v)v=C128D.decode(vid);
+    if(det){const r=await det.detect(vid);if(r&&r[0])v=r[0].rawValue}if(!v)v=C128D.decode(vid)||C128D.decodeRot(vid);
     if(v){const res=CAM.resolve;CAM.resolve=CAM.reject=null;camStop();$('#camShot').className='shot';if(NB&&NB.vibrate)NB.vibrate();else if(navigator.vibrate)navigator.vibrate(80);res(v)}}catch(_){}busy=false},180)})}
 
 /* ================= تطبيقا الكشف والتنفيذ (خاصية إضافية) ================= */
@@ -543,18 +556,65 @@ function tasks(){return (boot&&boot.tasks)||[]}
 function taskById(id){return tasks().find(t=>t.id===id)}
 
 /* ================= الرئيسية ================= */
+
+/* ================= الحضور بالرمز المجدول ================= */
+const C128=['212222','222122','222221','121223','121322','131222','122213','122312','132212','221213','221312','231212','112232','122132','122231','113222','123122','123221','223211','221132','221231','213212','223112','312131','311222','321122','321221','312212','322112','322211','212123','212321','232121','111323','131123','131321','112313','132113','132311','211313','231113','231311','112133','112331','132131','113123','113321','133121','313121','211331','231131','213113','213311','213131','311123','311321','331121','312113','312311','332111','314111','221411','431111','111224','111422','121124','121421','141122','141221','112214','112412','122114','122411','142112','142211','241211','221114','413111','241112','134111','111242','121142','121241','114212','124112','124211','411212','421112','421211','212141','214121','412121','111143','111341','131141','114113','114311','411113','411311','113141','114131','311141','411131','211412','211214','211232','2331112'];
+function code128(text){const vals=[104];for(const ch of text){const c=ch.charCodeAt(0);vals.push(c>=32&&c<=127?c-32:0)}let sum=104;for(let i=1;i<vals.length;i++)sum+=vals[i]*i;vals.push(sum%103);vals.push(106);
+  let x=10,bars='';vals.forEach(v=>{const p=C128[v];for(let i=0;i<p.length;i++){const w=+p[i];if(i%2===0)bars+=`<rect x="${x}" y="0" width="${w}" height="60"/>`;x+=w}});
+  return `<svg viewBox="0 0 ${x+10} 60" preserveAspectRatio="none" shape-rendering="crispEdges"><rect width="${x+10}" height="60" fill="#fff"/><g fill="#000">${bars}</g></svg>`}
+function attData(){return (boot&&boot.att)||{issue:[],due:[]}}
+function leftTxt(exp){const ms=Date.parse(exp)-nowC();if(ms<=0)return 'انتهت الصلاحية';const m=Math.floor(ms/60000),sec=Math.floor(ms/1000)%60;return 'ينتهي خلال '+(m>=60?Math.floor(m/60)+' س '+(m%60)+' د':m+':'+String(sec).padStart(2,'0'))}
+const hmT=t=>new Date(t).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'});
+function attHtml(){if(cfg.demo)return '';const A=attData();let h='';
+  A.issue.filter(x=>Date.parse(x.expiresAt)>nowC()).forEach(x=>{const d=x.people.filter(p=>p.done).length;
+    h+=`<div class="attc"><h3>📢 رمز ${esc(x.label)} – ${esc(x.name)}</h3><div class="mut">اعرض هذا الرمز على الموظفين ليمسحوه من تطبيقهم. صالح حتى ${hmT(x.expiresAt)}.</div>
+    <div class="bc" onclick="attFull('${x.id}')">${code128(x.code)}</div><div style="display:flex;justify-content:space-between;align-items:center"><span class="cd" data-exp="${x.expiresAt}">${leftTxt(x.expiresAt)}</span><b>${d} / ${x.people.length} سجّلوا</b></div>
+    <div class="ppl">${x.people.map(p=>`<span class="${p.done?'on':''}">${p.done?'✓ ':''}${esc(p.name)}</span>`).join('')}</div>
+    <button class="btn dk w" style="margin-top:10px" onclick="attFull('${x.id}')">⛶ عرض الرمز بملء الشاشة</button></div>`});
+  if(has('attendance'))A.due.filter(x=>Date.parse(x.expiresAt)>nowC()).forEach(x=>{
+    h+=`<div class="attc due"><h3>🕘 سجّل ${esc(x.label)} – ${esc(x.name)}</h3><div class="mut">امسح الرمز الظاهر في تطبيق <b>${esc(x.responsible)}</b> ثم التقط سيلفي. <span class="cd" data-exp="${x.expiresAt}">${leftTxt(x.expiresAt)}</span></div>
+    <button class="btn pri w" style="margin-top:10px" onclick="attScan()">📷 مسح رمز ${esc(x.label)} + سيلفي</button></div>`});
+  return h}
+function attTickUi(){document.querySelectorAll('[data-exp]').forEach(e=>{e.textContent=leftTxt(e.dataset.exp);e.classList.toggle('end',Date.parse(e.dataset.exp)-nowC()<120000)})}
+setInterval(attTickUi,1000);
+let attSentGps={};
+async function pollAtt(){if(cfg.demo||!cfg.token||!cfg.server||!boot)return;try{const j=await apiJson('/api/mobile/att',{ms:12000});const before=JSON.stringify(boot.att||{});boot.att={issue:j.issue||[],due:j.due||[]};LS.set('boot',boot);
+  if(JSON.stringify(boot.att)!==before){if(cur()==='sHome'){const b=$('#attBox');if(b)b.innerHTML=attHtml();else renderHome()}attFullUpd()}
+  const mine=boot.att.issue.filter(x=>!attSentGps[x.id]);if(mine.length){const g=await getGps(12000);if(g&&g.lat!=null)for(const x of mine){attSentGps[x.id]=1;apiJson('/api/mobile/att-issuer-gps',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:x.id,gps:g})}).catch(()=>{})}}}catch(_){}}
+setInterval(()=>{if(document.visibilityState==='visible')pollAtt()},20000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')pollAtt()});
+let attFullId=null;
+window.attFull=id=>{attFullId=id;let o=$('#attFull');if(!o){o=document.createElement('div');o.id='attFull';document.body.appendChild(o)}attFullUpd();try{if(NB&&NB.keepOn)NB.keepOn(true)}catch(_){}
+  try{navigator.wakeLock&&navigator.wakeLock.request('screen').then(l=>window.__wl=l).catch(()=>{})}catch(_){}};
+function attFullUpd(){const o=$('#attFull');if(!o||!attFullId)return;const x=attData().issue.find(y=>y.id===attFullId);
+  if(!x||Date.parse(x.expiresAt)<=nowC()){o.innerHTML=`<h2>انتهت صلاحية الرمز</h2><p>سيظهر الرمز الجديد تلقائياً في الوقت المحدد.</p><button class="btn pri" onclick="attFullClose()">إغلاق</button>`;return}
+  const d=x.people.filter(p=>p.done).length;o.innerHTML=`<h2>رمز ${esc(x.label)} – ${esc(x.name)}</h2><div class="mut">امسحه من تطبيق الموظف ← «مسح رمز الحضور»</div><div class="bcw">${code128(x.code)}</div><div class="cd" data-exp="${x.expiresAt}">${leftTxt(x.expiresAt)}</div><b>${d} / ${x.people.length} سجّلوا</b><button class="btn sec" style="margin-top:16px" onclick="attFullClose()">إغلاق</button>`}
+window.attFullClose=()=>{attFullId=null;const o=$('#attFull');if(o)o.remove();try{window.__wl&&window.__wl.release()}catch(_){}};
+window.attScan=async()=>{if(!needPerm('attendance','تسجيل الحضور'))return;if(cfg.demo)return toast('الوضع التجريبي');
+  if(!navigator.onLine)return alertDlg('لا يوجد اتصال','التحقق من رمز الحضور يحتاج اتصالاً بالإنترنت لحظة المسح. اتصل بالإنترنت وحاول مجدداً.');
+  const gp=getGps(15000);let v;try{v=await scanCode('','امسح رمز الحضور من هاتف المسؤول')}catch(e){if(e.message==='unsupported')alertDlg('الماسح غير متوفر','هذا الجهاز لا يسمح بتشغيل الكاميرا.');return}
+  v=String(v).trim();const scanAt=new Date(nowC()).toISOString();let chk;const b=busy('جارٍ التحقق من الرمز…');
+  try{chk=await apiJson('/api/mobile/att-check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:v})})}catch(e){closeDlg();return alertDlg('لم يُقبل الرمز',esc(e.message))}
+  closeDlg();if(NB&&NB.vibrate)NB.vibrate();
+  const g=await gp;let sf;try{sf=await capturePhoto({facing:'user',label:chk.label+' – '+chk.name,gps:g,title:'سيلفي – '+chk.label})}catch(e){return toast('أُلغي التسجيل. امسح الرمز مجدداً قبل انتهاء صلاحيته')}
+  const meta={sessionId:chk.sessionId,code:v,ticket:chk.ticket,checkedAt:chk.checkedAt,scanAt,gps:g,deviceTime:new Date().toISOString(),correctedTime:new Date(nowC()).toISOString(),selfieAt:sf.at,integrity:integrity(),device:deviceStr()};
+  await queue('attScans',meta,[{field:'selfie',name:'att_'+Date.now()+'.jpg',blob:sf.blob,hash:sf.hash}],chk.label+' – '+chk.name,'🕘');
+  const A=attData();A.due=A.due.filter(x=>x.id!==chk.sessionId);if(cur()==='sHome')renderHome();
+  alertDlg('✓ تم تسجيل '+esc(chk.label),'سُجّل '+esc(chk.label)+' في '+esc(chk.name)+' الساعة '+hmT(scanAt)+'.'+(navigator.onLine?'':' سيُرسل السيلفي عند توفّر الاتصال.'))};
+
 async function renderHome(){const e=cfg.employee||{};const n=await pendingCount();const ts=tasks();
   const open=ts.filter(t=>nextStep(t));const done=ts.filter(t=>!nextStep(t));
   const isToday=a=>a&&new Date(a).toLocaleDateString('en-CA',{timeZone:TZ})===todayStr();const todayIn=localEv().some(x=>x.step==='wh_in'&&x.emp===e.code&&isToday(x.at))||ts.some(t=>(t.progress||[]).some(p=>p.step==='wh_in'&&p.employeeId===e.id&&isToday(p.at)));
   $('#sHome').innerHTML=`<div class="hello"><small>مرحباً</small><b>${esc(e.name)}</b><small>${esc(e.department||'')}${/^erp:/.test(e.code||'')?'':' · رقم '+esc(e.code)}</small>
   ${has('attendance')?`<div class="chips"><span class="chip ${todayIn?'lime':''}">${todayIn?'✓ مسجّل حضور اليوم':'لم يُسجّل الحضور اليوم'}</span><span class="chip">${open.length} مهام مفتوحة</span>${n?`<span class="chip lime">${n} بانتظار الإرسال</span>`:''}</div>`:''}</div>
   ${noticeBanner()}
+  <div id="attBox">${attHtml()}</div>
   ${has('erp')&&!EMBED?`<button class="tile big w" style="width:100%;margin-bottom:12px" onclick="openErp()"><span class="i">🏢</span><b>منظومة ERP</b><small>${erpLive()?'مفتوحة — اضغط للعودة إليها':'المراسلات · الاستمارات · الأرشيف · أقسام إدارتك'}</small></button>`:''}
   ${has('survey')||has('execution')?`<div class="tiles2">
    ${has('survey')?`<button class="tile big" onclick="openTool('survey')"><span class="i">📋</span><b>تطبيق الكشف</b><small>تقرير كشف موقعي PDF</small></button>`:''}
    ${has('execution')?`<button class="tile big" onclick="openTool('execution')"><span class="i">🛠️</span><b>تطبيق التنفيذ</b><small>تقرير تنفيذ PDF</small></button>`:''}
   </div>`:''}
   <div class="tiles">
+   ${has('attendance')?`<button class="tile" onclick="attScan()"><span class="i">🕘</span><b>مسح رمز الحضور</b><small>رمز المسؤول + سيلفي</small></button>`:''}
    ${has('obstacles')?`<button class="tile" onclick="openObs()"><span class="i">⚠️</span><b>الإبلاغ عن معوّق</b><small>فيديو مباشر يوضح المشكلة</small></button>`:''}
    ${has('reports')?`<button class="tile" onclick="openReport()"><span class="i">📤</span><b>رفع تقرير / استمارة</b><small>PDF · صور · مستندات</small></button>`:''}
    <button class="tile" onclick="show('sLog');renderLog()"><span class="i">🗂️</span><b>سجل العمليات</b><small>ما تم إرساله والمعلّق</small></button>
@@ -792,7 +852,7 @@ async function launcher(){show('sBoot',false);$('#bootAct').classList.add('hidde
   $('#bootSrv').value=cfg.server||DEF_SERVER;$('#bootAct').classList.remove('hidden')}
 $('#bootRetry').onclick=()=>{const v=normServer($('#bootSrv').value);if(v){cfg.server=v;saveCfg()}launcher()};
 (function start(){
-  if(EMBED){document.body.classList.add('embed');show('sBoot',false);embedLogin().then(ok=>{if(ok){embedRoute();sync();setTimeout(pollNotices,800)}});window.addEventListener('hashchange',embedRoute);return}
+  if(EMBED){document.body.classList.add('embed');show('sBoot',false);embedLogin().then(ok=>{if(ok){embedRoute();sync();setTimeout(pollNotices,800);setTimeout(pollAtt,1500)}});window.addEventListener('hashchange',embedRoute);return}
   if(!cfg.demo){if(atServer())location.replace(serverOrigin()+'/erp/');else launcher();return}
   if(cfg.demo&&cfg.employee){$('#demoBar').classList.remove('hidden');boot=boot||demoBoot();show('sHome',false);renderHome();return}
   if(cfg.token&&cfg.employee&&boot){show('sHome',false);renderHome();refresh(true).then(ok=>{if(ok&&cur()==='sHome')renderHome()});sync();return}
