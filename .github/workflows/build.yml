@@ -73,7 +73,7 @@ jobs:
           A=pkg/ALTAKA-ALWATANIYAH-Accounting-Server-Windows
           mkdir -p $A/accounting
           cp -r accounting/server.js accounting/chart.js accounting/start-windows.bat accounting/public $A/accounting/
-          cp accounting/install-accounting-windows.bat "accounting/دليل-برنامج-الحسابات.txt" $A/ && cp server-windows/auto-update.ps1 $A/
+          cp accounting/install-accounting-windows.bat "accounting/دليل-برنامج-الحسابات.txt" $A/ && cp server-windows/auto-update.ps1 server-windows/update-now.bat $A/
           (cd pkg && zip -r ../ALTAKA-ALWATANIYAH-Accounting-Server-Windows.zip ALTAKA-ALWATANIYAH-Accounting-Server-Windows)
       - uses: actions/upload-artifact@v4
         with:
