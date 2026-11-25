@@ -75,6 +75,7 @@
     { k: 'survey', h: 'survey', t: 'تطبيق الكشف', i: SV('<path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="m9 14 2 2 4-4"/>') },
     { k: 'execution', h: 'execution', t: 'تطبيق التنفيذ', i: SV('<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9z"/>') },
     { k: 'obstacles', h: 'obstacles', t: 'الإبلاغ عن معوّق', i: SV('<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>') },
+    { k: 'attadmin', h: 'attadm', t: 'إدارة رموز الحضور', i: SV('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/><path d="M9 15v2M12 15v2M15 15v2"/>') },
     { k: 'reports', h: 'reports', t: 'رفع تقرير / استمارة', i: SV('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5M12 3v12"/>') }
   ];
   var FIELD_PERMS = TOOLS.map(function (x) { return x.k; });

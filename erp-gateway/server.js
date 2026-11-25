@@ -215,8 +215,11 @@ const PERMS = {
   execution: 'تطبيق التنفيذ',
   obstacles: 'الإبلاغ عن المعوقات (فيديو)',
   reports: 'رفع التقارير والاستمارات',
-  erp: 'منظومة ERP (الإدارات)'
+  erp: 'منظومة ERP (الإدارات)',
+  attadmin: 'إدارة رموز الحضور (إصدار الرمز وتصديره)'
 };
+// صلاحيات تُمنح لأي موظف بغض النظر عن ملفه، من الإعدادات
+const EXTRA_PERMS = ['attadmin'];
 // الملفات الجاهزة: تُختار تلقائياً من الإدارة/القسم والعنوان الوظيفي، ويمكن تغييرها لكل موظف
 const PROFILES = {
   management: { t: 'الإدارة العليا / مدير', perms: Object.keys(PERMS) },
@@ -242,15 +245,22 @@ function permsOf(e) {
   const list = pr === 'custom' ? (e.perms || []) : PROFILES[pr].perms;
   const out = list.filter(k => PERMS[k]);
   if (e.erpUser && !out.includes('erp')) out.push('erp');
+  (e.extraPerms || []).forEach(k => { if (EXTRA_PERMS.includes(k) && !out.includes(k)) out.push(k); });
+  if (isSysAdmin(e) && !out.includes('attadmin')) out.push('attadmin');
   return out;
 }
 function can(e, k) { return permsOf(e).includes(k); }
+// مدير النظام: دور مدير النظام في منظومة ERP، أو ملف «الإدارة العليا»
+const SYSADMIN_RE = /(^|[\s_-])(admin|administrator|sysadmin|superadmin|super[ _-]?admin|system[ _-]?admin)($|[\s_-])|مدير النظام|مسؤول النظام|مدير المنظومة/i;
+// (ملف «الإدارة العليا» المعيَّن يدوياً من لوحة الحاسبة الأم، لا المستنتج تلقائياً من العنوان الوظيفي)
+function isSysAdmin(e) { return (e.erpRoles || []).some(r => SYSADMIN_RE.test(r)) || e.profile === 'management'; }
 function cleanPerms(b, it) {
   if (b.profile !== undefined) it.profile = PROFILES[b.profile] ? b.profile : '';
   if (Array.isArray(b.perms)) { it.perms = b.perms.filter(k => PERMS[k]); if (!b.profile) it.profile = 'custom'; }
   if (it.profile !== 'custom') delete it.perms;
+  if (Array.isArray(b.extraPerms)) it.extraPerms = b.extraPerms.filter(k => EXTRA_PERMS.includes(k));
 }
-function pubEmployee(e) { return { id: e.id, code: e.code, name: e.name, department: e.department, jobTitle: e.jobTitle, phone: e.phone, email: e.email || '', erpUser: e.erpUser || '', source: e.source || '', profile: profileOf(e), profileAuto: !PROFILES[e.profile], perms: permsOf(e) }; }
+function pubEmployee(e) { return { id: e.id, code: e.code, name: e.name, department: e.department, jobTitle: e.jobTitle, phone: e.phone, email: e.email || '', erpUser: e.erpUser || '', source: e.source || '', profile: profileOf(e), profileAuto: !PROFILES[e.profile], perms: permsOf(e), extraPerms: e.extraPerms || [], sysAdmin: isSysAdmin(e) }; }
 
 /* ---------------- الإشعارات (من الإدارة الهندسية / الإدارة العليا عبر ERP) ---------------- */
 function noticeFor(n, emp) { return n.active !== false && (n.audience === 'all' || (n.codes || []).includes(String(emp.code))); }
@@ -635,6 +645,63 @@ route('POST', '/api/mobile/attScans', mobileUpload('attScans', 'selfies', (rec, 
   if (rec.status === 'accepted' && Date.now() - Date.parse(ses.expiresAt) > 5 * 60e3) flags.push('وصل متأخراً بسبب ضعف الاتصال (مُسح في الوقت)');
   return flags;
 }));
+
+/* إدارة رموز الحضور من داخل منظومة ERP / التطبيق (صلاحية attadmin) */
+function attAdm(req, res) { const a = mobileAuth(req); if (!a) { send(res, 401, { error: 'unauthorized' }); return null; }
+  if (!can(a.employee, 'attadmin')) { send(res, 403, { error: 'forbidden', message: 'ليست لديك صلاحية: ' + PERMS.attadmin }); return null; } return a; }
+function attLog(a, what) { (db.attLog = db.attLog || []).push({ at: nowIso(), by: a.employee.id, byName: a.employee.name, what }); if (db.attLog.length > 3000) db.attLog = db.attLog.slice(-3000); }
+route('GET', '/api/mobile/attadm', (req, res) => {
+  const a = attAdm(req, res); if (!a) return;
+  const today = bgParts().date, now = Date.now();
+  send(res, 200, { serverTime: nowIso(), canGrant: isSysAdmin(a.employee),
+    employees: db.employees.filter(e => e.active !== false).map(e => ({ id: e.id, code: e.code, name: e.name, department: e.department, jobTitle: e.jobTitle, profile: profileOf(e), attadmin: can(e, 'attadmin'), fixed: can(e, 'attadmin') && !(e.extraPerms || []).includes('attadmin') })),
+    schedules: db.attSchedules.filter(x => x.active !== false),
+    sessions: db.attSessions.filter(x => x.date === today || Date.parse(x.expiresAt) > now).slice(-200).map(x => Object.assign({}, x, { code: attCode(x.key), done: x.employeeIds.filter(id => attScanOf(x, id)) })),
+    scans: db.attScans.slice(-150).reverse().map(x => ({ id: x.id, employeeName: x.employeeName, label: x.label, scheduleName: x.scheduleName, checkedAt: x.checkedAt || x.receivedAt, status: x.status, flags: x.flags || [], distanceM: x.distanceM, gps: x.gps, selfie: ((x.files || []).find(f => f.field === 'selfie') || {}).path || null })) });
+});
+route('POST', '/api/mobile/attadm/schedule', async (req, res) => {
+  const a = attAdm(req, res); if (!a) return;
+  const b = await readJson(req); let it = b.id ? db.attSchedules.find(x => x.id === b.id) : null; const isNew = !it;
+  if (isNew) it = { id: uid('SC'), createdAt: nowIso(), createdBy: a.employee.id };
+  const err = cleanSchedule(it, b); if (err) return send(res, 400, { error: 'invalid', message: err });
+  it.updatedAt = nowIso(); if (isNew) db.attSchedules.push(it); attLog(a, (isNew ? 'إنشاء' : 'تعديل') + ' جدول ' + it.name); save(); send(res, 200, { ok: true, item: it });
+});
+route('POST', '/api/mobile/attadm/disable', async (req, res) => {
+  const a = attAdm(req, res); if (!a) return;
+  const b = await readJson(req); const it = db.attSchedules.find(x => x.id === b.id); if (it) { it.active = false; attLog(a, 'تعطيل جدول ' + it.name); save(); } send(res, 200, { ok: true });
+});
+route('POST', '/api/mobile/attadm/issue', async (req, res) => {
+  const a = attAdm(req, res); if (!a) return;
+  const b = await readJson(req); const sc = db.attSchedules.find(x => x.id === b.scheduleId && x.active !== false);
+  if (!sc) return send(res, 404, { error: 'not_found', message: 'الجدول غير موجود' });
+  const ses = attIssue(sc, String(b.label || 'حضور').slice(0, 40), b.validMin || sc.validMin); ses.issuedBy = a.employee.id; attLog(a, 'إصدار رمز ' + ses.label + ' – ' + sc.name); save();
+  send(res, 200, { ok: true, session: Object.assign({}, ses, { code: attCode(ses.key) }) });
+});
+route('POST', '/api/mobile/attadm/cancel', async (req, res) => {
+  const a = attAdm(req, res); if (!a) return;
+  const b = await readJson(req); const ses = db.attSessions.find(x => x.id === b.id);
+  if (ses && Date.parse(ses.expiresAt) > Date.now()) { ses.expiresAt = nowIso(); ses.cancelled = true; attLog(a, 'إلغاء رمز ' + ses.label + ' – ' + ses.scheduleName); save(); }
+  send(res, 200, { ok: true });
+});
+route('POST', '/api/mobile/attadm/export', async (req, res) => {
+  const a = attAdm(req, res); if (!a) return;
+  const b = await readJson(req); const ses = db.attSessions.find(x => x.id === b.id); if (ses) { attLog(a, 'تصدير رمز ' + ses.label + ' – ' + ses.scheduleName + ' (' + (b.how || '') + ')'); save(); }
+  send(res, 200, { ok: true });
+});
+route('POST', '/api/mobile/attadm/grant', async (req, res) => {
+  const a = attAdm(req, res); if (!a) return;
+  if (!isSysAdmin(a.employee)) return send(res, 403, { error: 'forbidden', message: 'منح الصلاحية لمدير النظام فقط' });
+  const b = await readJson(req); const e = db.employees.find(x => x.id === b.employeeId); if (!e) return send(res, 404, { error: 'not_found' });
+  const x = new Set(e.extraPerms || []); b.on ? x.add('attadmin') : x.delete('attadmin'); e.extraPerms = [...x];
+  attLog(a, (b.on ? 'منح' : 'سحب') + ' صلاحية إدارة رموز الحضور: ' + e.name); save(); send(res, 200, { ok: true, attadmin: can(e, 'attadmin') });
+});
+route('GET', '/api/mobile/attadm/selfie/:id', (req, res, url, p) => {
+  const a = attAdm(req, res); if (!a) return;
+  const x = db.attScans.find(y => y.id === p.id), f = x && (x.files || []).find(y => y.field === 'selfie'); if (!f) return send(res, 404, { error: 'not_found' });
+  const fp = path.normalize(path.join(MEDIA, f.path)); if (!fp.startsWith(MEDIA)) return send(res, 403, { error: 'forbidden' });
+  return serveFile(req, res, fp);
+});
+route('GET', '/api/mobile/attadm/csv', (req, res) => { const a = attAdm(req, res); if (!a) return; send(res, 200, csv(attScanRows()), { 'Content-Type': 'text/csv; charset=utf-8' }); });
 route('POST', '/api/mobile/forms', mobileUpload('forms', 'forms'));
 route('POST', '/api/mobile/obstacles', mobileUpload('obstacles', 'obstacles', rec => {
   const t = db.tasks.find(x => x.id === rec.taskId);
@@ -763,7 +830,7 @@ crud('tasks', 'T', (it, b, isNew) => {
 });
 
 
-crud('attSchedules', 'SC', (it, b) => {
+function cleanSchedule(it, b) {
   if (!String(b.name || '').trim()) return 'اسم الجدول مطلوب (مثل: فريق تنفيذ مشروع ...)';
   if (!db.employees.some(e => e.id === b.responsibleId)) return 'اختر الموظف المسؤول الذي يستلم الرمز';
   const ids = (Array.isArray(b.employeeIds) ? b.employeeIds : []).filter(id => db.employees.some(e => e.id === id));
@@ -772,7 +839,8 @@ crud('attSchedules', 'SC', (it, b) => {
   const vm = Number(b.validMin); if (!(vm >= 1 && vm <= 24 * 60)) return 'مدة الصلاحية بين 1 دقيقة و24 ساعة';
   Object.assign(it, { name: String(b.name).trim(), place: String(b.place || '').trim(), responsibleId: b.responsibleId, employeeIds: ids, slots,
     days: (Array.isArray(b.days) ? b.days : []).map(Number).filter(d => d >= 0 && d <= 6), validMin: vm, radiusM: num(b.radiusM) || 300, active: b.active !== false });
-});
+}
+crud('attSchedules', 'SC', cleanSchedule);
 route('POST', '/api/admin/att-issue', async (req, res, url) => {
   if (!adminAuth(req, url)) return send(res, 401, { error: 'unauthorized' });
   const b = await readJson(req); const sc = db.attSchedules.find(x => x.id === b.scheduleId && x.active !== false);
@@ -788,6 +856,9 @@ route('POST', '/api/admin/att-cancel', async (req, res, url) => {
 });
 route('GET', '/api/admin/att-scans.csv', (req, res, url) => {
   if (!adminAuth(req, url)) return send(res, 401, 'unauthorized');
+  send(res, 200, csv(attScanRows()), { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="ALTAKA-ALWATANIYAH_qr-attendance.csv"' });
+});
+function attScanRows() {
   const rows = [['التاريخ', 'الوقت', 'الجدول', 'النوع', 'كود الموظف', 'اسم الموظف', 'المسؤول', 'الحالة', 'المسافة عن المسؤول م', 'خط العرض', 'خط الطول', 'الملاحظات', 'رابط الخريطة']];
   db.attScans.slice().sort((a, b) => (a.checkedAt > b.checkedAt ? 1 : -1)).forEach(x => {
     const e = db.employees.find(y => y.id === x.employeeId) || {}, r = db.employees.find(y => y.id === x.responsibleId) || {}, g = x.gps || {}, P = bgParts(Date.parse(x.checkedAt || x.receivedAt));
@@ -798,8 +869,8 @@ route('GET', '/api/admin/att-scans.csv', (req, res, url) => {
     if (attScanOf(x, id)) return; const e = db.employees.find(y => y.id === id) || {}, r = db.employees.find(y => y.id === x.responsibleId) || {};
     rows.push([x.date, hmOf(x.startsAt), x.scheduleName, x.label, e.code, e.name, r.name, 'لم يسجّل', '', '', '', '', '']);
   }));
-  send(res, 200, csv(rows), { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="ALTAKA-ALWATANIYAH_qr-attendance.csv"' });
-});
+  return rows;
+}
 route('GET', '/api/admin/attendance.csv', (req, res, url) => {
   if (!adminAuth(req, url)) return send(res, 401, 'unauthorized');
   send(res, 200, csv(attendanceRows()), { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="ALTAKA-ALWATANIYAH_attendance.csv"' });
@@ -928,6 +999,7 @@ function employeeForErp(userName, me) {
     db.employees.push(e);
   } else if (e.source === 'erp') { e.name = name; e.department = unitName(me) || e.department; e.jobTitle = jobOf(me) || e.jobTitle; }
   e.erpUser = userName; if (eid) e.erpEmployeeId = String(eid); e.updatedAt = nowIso();
+  if (me && Array.isArray(me.roles)) e.erpRoles = me.roles.map(x => typeof x === 'string' ? x : x ? [x.code, x.key, x.name, x.nameAr].filter(Boolean).join(' ') : '').filter(Boolean).slice(0, 30);
   return e;
 }
 

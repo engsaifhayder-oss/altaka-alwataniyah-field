@@ -129,6 +129,10 @@ textarea{min-height:90px;resize:vertical}
 .toolbar button{font:inherit;font-size:15px;border:0;border-radius:11px;background:var(--lime);color:var(--dk);font-weight:700;padding:8px 14px}
 .toolbar b{flex:1;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tool iframe{flex:1;width:100%;border:0;background:#fff}
+.seg{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;padding-bottom:2px}.seg button{flex:0 0 auto;font:inherit;font-size:14px;font-weight:700;border:1px solid var(--line);background:#fff;color:var(--dk);border-radius:20px;padding:8px 14px;cursor:pointer}.seg button.on{background:var(--dk);color:#fff;border-color:var(--dk)}
+.aa{padding:12px 14px;border-bottom:1px solid var(--line)}.aa:last-child{border-bottom:0}.aa b{color:var(--dk)}.aa .mut{font-size:13px}.aa .row{margin-top:8px}.aa .btn{padding:9px 10px;font-size:14px}
+.aa img.sf{width:56px;height:56px;border-radius:10px;object-fit:cover;float:left;margin-inline-start:8px;background:#eee}
+.flg{display:block;color:var(--err);font-size:12px}.ck{display:flex;flex-wrap:wrap;gap:6px;max-height:220px;overflow:auto}.ck label{display:flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:6px 9px;font-weight:400;color:var(--ink);margin:0}.ck input{width:auto}
 .attc{background:#fff;border:2px solid var(--dk);border-radius:16px;padding:14px;margin-bottom:12px}
 .attc.due{border-color:var(--lime);background:#f6fbe9}
 .attc h3{margin:0 0 4px;font-size:17px;color:var(--dk)}.attc .mut{font-size:13px}
@@ -194,6 +198,7 @@ textarea{min-height:90px;resize:vertical}
 <!-- ===== الإعدادات ===== -->
 <section class="screen" id="sSet"></section>
 <section class="screen" id="sNotif"></section>
+<section class="screen" id="sAttAdm"></section>
 </main>
 
 <div class="bar hidden" id="bar"><div class="in" id="barIn"></div></div>
@@ -509,7 +514,7 @@ window.addEventListener('message',async e=>{const d=e.data;if(!d||d.type!=='ne-t
 /* ================= التنقل ================= */
 let stack=[];
 function cur(){const s=$('.screen.on');return s?s.id:null}
-const TITLES={sBoot:'الطاقة الوطنية',sLogin:'الطاقة الوطنية',sHome:'الرئيسية',sTask:'تفاصيل المهمة',sStep:'تسجيل خطوة',sForm:'الاستمارة',sObs:'الإبلاغ عن معوّق',sReport:'رفع تقرير / استمارة',sLog:'سجل العمليات',sSet:'الإعدادات',sNotif:'الإشعارات'};
+const TITLES={sBoot:'الطاقة الوطنية',sLogin:'الطاقة الوطنية',sHome:'الرئيسية',sTask:'تفاصيل المهمة',sStep:'تسجيل خطوة',sForm:'الاستمارة',sObs:'الإبلاغ عن معوّق',sReport:'رفع تقرير / استمارة',sLog:'سجل العمليات',sSet:'الإعدادات',sNotif:'الإشعارات',sAttAdm:'إدارة رموز الحضور'};
 function show(id,push){if(push!==false){const c=cur();if(c&&c!==id&&c!=='sLogin')stack.push(c)}
   $$('.screen').forEach(s=>s.classList.toggle('on',s.id===id));$('#hTitle').textContent=TITLES[id]||'';$('#backBtn').classList.toggle('hidden',!stack.length||id==='sLogin'||id==='sHome');
   if(id==='sHome'||id==='sLogin')stack=[];$('#bar').classList.add('hidden');window.scrollTo(0,0);updChip();try{updBell()}catch(_){}}
@@ -518,7 +523,7 @@ async function goBack(){if(erpOpen()){closeErp();if(cur()==='sHome')renderHome()
   const p=stack.pop();if(!p)return false;show(p,false);rerender(p);return true}
 window.appBack=function(){if(erpOpen()||toolOpen()||!$('#cam').classList.contains('hidden')||dlgOpen||stack.length){goBack();return true}return false};
 $('#backBtn').onclick=goBack;
-function rerender(id){({sHome:renderHome,sTask:()=>renderTask(curTaskId),sLog:renderLog,sSet:renderSet,sNotif:renderNotices})[id]?.()}
+function rerender(id){({sHome:renderHome,sTask:()=>renderTask(curTaskId),sLog:renderLog,sSet:renderSet,sNotif:renderNotices,sAttAdm:renderAttAdm})[id]?.()}
 function setBar(html){$('#barIn').innerHTML=html;$('#bar').classList.remove('hidden')}
 
 /* ================= الدخول ================= */
@@ -601,6 +606,77 @@ window.attScan=async()=>{if(!needPerm('attendance','تسجيل الحضور'))re
   const A=attData();A.due=A.due.filter(x=>x.id!==chk.sessionId);if(cur()==='sHome')renderHome();
   alertDlg('✓ تم تسجيل '+esc(chk.label),'سُجّل '+esc(chk.label)+' في '+esc(chk.name)+' الساعة '+hmT(scanAt)+'.'+(navigator.onLine?'':' سيُرسل السيلفي عند توفّر الاتصال.'))};
 
+
+/* ================= إدارة رموز الحضور (مدير النظام أو من مُنح الصلاحية) ================= */
+let AA=null,aaTab='codes';
+const DAYS_AR=['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+const aaEmp=id=>((AA&&AA.employees)||[]).find(e=>e.id===id)||{};
+const jpost=(p,b)=>apiJson(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})});
+window.openAttAdm=async tab=>{if(!needPerm('attadmin','إدارة رموز الحضور'))return;if(tab)aaTab=tab;show('sAttAdm');$('#sAttAdm').innerHTML='<div class="card"><div class="body"><div class="spin"></div></div></div>';await aaLoad();renderAttAdm()};
+async function aaLoad(){try{AA=await apiJson('/api/mobile/attadm')}catch(e){$('#sAttAdm').innerHTML=`<div class="warnbox">${esc(e.message)}</div>`;AA=null}}
+function renderAttAdm(){if(!AA)return;const now=nowC();const T=[['codes','رموز اليوم'],['sched','الجداول'],['log','السجل']];if(AA.canGrant)T.push(['perm','الصلاحيات']);
+  let h=`<div class="seg">${T.map(([k,t])=>`<button class="${aaTab===k?'on':''}" onclick="aaTab='${k}';renderAttAdm()">${t}</button>`).join('')}<button onclick="aaRefresh()">↻</button></div>`;
+  if(aaTab==='codes'){const ss=AA.sessions.slice().reverse();
+    h+=`<div class="card">${ss.length?ss.map(x=>{const live=Date.parse(x.expiresAt)>now;const miss=x.employeeIds.filter(i=>!x.done.includes(i));
+      return `<div class="aa"><b>${esc(x.label)} – ${esc(x.scheduleName)}</b> ${live?'<span class="pill" style="background:#e3f4d0;color:var(--ok)">فعّال</span>':x.cancelled?'<span class="pill" style="background:#fdecea;color:var(--err)">أُلغي</span>':'<span class="pill">منتهي</span>'}
+      <div class="mut">${hmT(x.startsAt)} – ${hmT(x.expiresAt)} · المسؤول: ${esc(aaEmp(x.responsibleId).name||'')} · سجّل ${x.done.length} / ${x.employeeIds.length}${live?` · <span data-exp="${x.expiresAt}">${leftTxt(x.expiresAt)}</span>`:''}</div>
+      ${miss.length?`<div class="mut">لم يسجّل: ${miss.map(i=>esc(aaEmp(i).name||'')).join('، ')}</div>`:''}
+      ${live?`<div class="row"><button class="btn dk" onclick="aaCode('${x.id}')">عرض / تصدير الرمز</button><button class="btn sec" onclick="aaCancel('${x.id}')">إلغاء الرمز</button></div>`:''}</div>`}).join(''):'<div class="aa mut">لم يُصدر أي رمز اليوم. من «الجداول» اضغط «إصدار رمز الآن».</div>'}</div>`}
+  if(aaTab==='sched'){h+=`<button class="btn pri w" style="margin-bottom:12px" onclick="aaForm()">+ جدول حضور جديد</button><div class="card">${AA.schedules.length?AA.schedules.map(sc=>`<div class="aa"><b>${esc(sc.name)}</b>${sc.place?` <span class="mut">· ${esc(sc.place)}</span>`:''}
+      <div class="mut">المسؤول: ${esc(aaEmp(sc.responsibleId).name||'—')} · ${sc.employeeIds.length} موظف · صلاحية ${sc.validMin} دقيقة</div>
+      <div class="mut">${(sc.slots||[]).map(x=>esc(x.time+' '+x.label)).join(' · ')||'إصدار يدوي فقط'} · ${sc.days&&sc.days.length&&sc.days.length<7?sc.days.map(d=>DAYS_AR[d]).join('، '):'كل الأيام'}</div>
+      <div class="row"><button class="btn pri" onclick="aaIssue('${sc.id}')">إصدار رمز الآن</button><button class="btn sec" onclick="aaForm('${sc.id}')">تعديل</button><button class="btn sec" onclick="aaDisable('${sc.id}')">تعطيل</button></div></div>`).join(''):'<div class="aa mut">لا توجد جداول بعد.</div>'}</div>`}
+  if(aaTab==='log'){h+=`<button class="btn sec w" style="margin-bottom:12px" onclick="aaCsv()">⬇ تنزيل السجل (Excel)</button><div class="card">${AA.scans.length?AA.scans.map(x=>{const g=x.gps||{};
+      return `<div class="aa">${x.selfie?`<img class="sf" data-sf="${x.id}" onclick="aaImg(this)">`:''}<b>${esc(x.employeeName)}</b> ${x.status==='accepted'?'<span class="pill" style="background:#e3f4d0;color:var(--ok)">مقبول</span>':'<span class="pill" style="background:#fdecea;color:var(--err)">مرفوض</span>'}
+      <div class="mut">${esc(x.label||'')} – ${esc(x.scheduleName||'')} · ${fmtDT(Date.parse(x.checkedAt))}</div>
+      <div class="mut">${g.lat!=null?`<a target="_blank" href="https://maps.google.com/?q=${g.lat},${g.lng}">الموقع</a> ±${Math.round(g.accuracy||0)}م${x.distanceM!=null?' · يبعد عن المسؤول '+x.distanceM+'م':''}`:'الموقع غير متوفر'}</div>
+      ${(x.flags||[]).map(f=>`<span class="flg">⚠ ${esc(f)}</span>`).join('')}<div style="clear:both"></div></div>`}).join(''):'<div class="aa mut">لا توجد عمليات مسح بعد.</div>'}</div>`}
+  if(aaTab==='perm'){h+=`<div class="card"><div class="aa mut">من يملك صلاحية <b>إدارة رموز الحضور</b> (إنشاء الجداول، إصدار الرمز، تصديره، متابعة السجل). مدير النظام يملكها تلقائياً.</div>
+      <div class="aa"><input id="aaQ" placeholder="بحث بالاسم…" oninput="aaPermFilter()"></div>${AA.employees.map(e=>`<label class="aa" data-s="${esc((e.name+' '+(e.department||'')+' '+(e.jobTitle||'')).toLowerCase())}" style="display:flex;gap:10px;align-items:center;margin:0;font-weight:400;color:var(--ink)">
+      <input type="checkbox" style="width:auto" ${e.attadmin?'checked':''} ${e.fixed?'disabled':''} onchange="aaGrant('${e.id}',this)"><span><b>${esc(e.name)}</b><div class="mut">${esc(e.jobTitle||e.department||'')}${e.fixed?' · تلقائياً حسب دوره':''}</div></span></label>`).join('')}</div>`}
+  $('#sAttAdm').innerHTML=h;
+  $$('#sAttAdm img[data-sf]').forEach(async im=>{try{const r=await fetchT(cfg.server+'/api/mobile/attadm/selfie/'+im.dataset.sf,{headers:{Authorization:'Bearer '+cfg.token}},20000);if(r.ok)im.src=URL.createObjectURL(await r.blob())}catch(_){}})}
+window.aaRefresh=async()=>{await aaLoad();renderAttAdm();toast('تم التحديث')};
+window.aaImg=im=>{if(im.src)dlg(`<img src="${im.src}" style="width:100%;border-radius:12px"><button class="btn sec w" style="margin-top:10px" onclick="closeDlg()">إغلاق</button>`)};
+window.aaPermFilter=()=>{const q=$('#aaQ').value.trim().toLowerCase();$$('#sAttAdm label[data-s]').forEach(l=>l.style.display=!q||l.dataset.s.includes(q)?'':'none')};
+window.aaGrant=async(id,cb)=>{try{const j=await jpost('/api/mobile/attadm/grant',{employeeId:id,on:cb.checked});toast(j.attadmin?'مُنحت الصلاحية':'سُحبت الصلاحية');const e=aaEmp(id);e.attadmin=j.attadmin}catch(e){cb.checked=!cb.checked;toast(e.message)}};
+window.aaForm=id=>{const sc=id?AA.schedules.find(x=>x.id===id):{slots:[{time:'07:30',label:'حضور'},{time:'15:00',label:'انصراف'}],days:[0,1,2,3,4,6],validMin:30,radiusM:300,employeeIds:[]};
+  const emps=AA.employees.slice().sort((a,b)=>(b.profile==='executor')-(a.profile==='executor')||String(a.name).localeCompare(b.name,'ar'));window.__sl=(sc.slots||[]).map(x=>({...x}));
+  dlg(`<h3>${id?'تعديل جدول':'جدول حضور جديد'}</h3><label>اسم الجدول / الفريق</label><input id="aN" value="${esc(sc.name||'')}" placeholder="مثال: فريق تنفيذ مشروع الكفل"><label style="margin-top:8px">الموقع / المشروع</label><input id="aP" value="${esc(sc.place||'')}">
+  <label style="margin-top:8px">المسؤول (يستلم الرمز تلقائياً)</label><select id="aR"><option value="">— اختر —</option>${emps.map(e=>`<option value="${e.id}" ${e.id===sc.responsibleId?'selected':''}>${esc(e.name)}</option>`).join('')}</select>
+  <label style="margin-top:8px">الموظفون الذين يمسحون الرمز</label><input id="aQ2" placeholder="بحث…" oninput="const q=this.value.trim().toLowerCase();$$('#aE label').forEach(l=>l.style.display=!q||l.dataset.s.includes(q)?'':'none')" style="margin-bottom:6px"><div class="ck" id="aE">${emps.map(e=>`<label data-s="${esc((e.name+' '+(e.jobTitle||'')).toLowerCase())}"><input type="checkbox" class="aEc" value="${e.id}" ${sc.employeeIds.includes(e.id)?'checked':''}>${esc(e.name)}</label>`).join('')}</div>
+  <label style="margin-top:8px">أوقات الإصدار (بغداد)</label><div id="aSl"></div><button class="btn sec" style="padding:7px 12px;font-size:14px" onclick="__sl.push({time:'12:00',label:'حضور'});aaSl()">+ وقت</button>
+  <label style="margin-top:8px">الأيام</label><div class="ck">${DAYS_AR.map((d,i)=>`<label><input type="checkbox" class="aD" value="${i}" ${!sc.days||!sc.days.length||sc.days.includes(i)?'checked':''}>${d}</label>`).join('')}</div>
+  <div class="row" style="margin-top:8px"><div style="flex:1"><label>الصلاحية (دقيقة)</label><input id="aV" type="number" min="1" value="${sc.validMin}"></div><div style="flex:1"><label>أقصى بُعد (م)</label><input id="aRad" type="number" min="20" value="${sc.radiusM||300}"></div></div>
+  <div class="row" style="margin-top:12px"><button class="btn pri" id="aSave">حفظ</button><button class="btn sec" onclick="closeDlg()">إلغاء</button></div>`);aaSl();
+  $('#aSave').onclick=async()=>{try{await jpost('/api/mobile/attadm/schedule',{id:id||undefined,name:$('#aN').value,place:$('#aP').value,responsibleId:$('#aR').value,employeeIds:$$('.aEc').filter(x=>x.checked).map(x=>x.value),slots:__sl,days:$$('.aD').filter(x=>x.checked).map(x=>+x.value),validMin:+$('#aV').value,radiusM:+$('#aRad').value});closeDlg();toast('تم الحفظ');aaTab='sched';await aaLoad();renderAttAdm()}catch(e){toast(e.message,4000)}}};
+window.aaSl=()=>{$('#aSl').innerHTML=__sl.map((x,i)=>`<div class="row" style="margin-bottom:6px;flex-wrap:nowrap"><input type="time" value="${x.time}" onchange="__sl[${i}].time=this.value"><input value="${esc(x.label)}" onchange="__sl[${i}].label=this.value"><button class="btn sec" style="flex:0 0 auto;padding:8px 12px" onclick="__sl.splice(${i},1);aaSl()">✕</button></div>`).join('')||'<p class="mut">بدون أوقات: الإصدار يدوي فقط.</p>'};
+window.aaDisable=async id=>{if(!(await confirmDlg('تعطيل الجدول','لن تُصدر رموز جديدة لهذا الجدول. متابعة؟','تعطيل','إلغاء')))return;try{await jpost('/api/mobile/attadm/disable',{id});await aaLoad();renderAttAdm()}catch(e){toast(e.message)}};
+window.aaIssue=id=>{const sc=AA.schedules.find(x=>x.id===id);dlg(`<h3>إصدار رمز الآن</h3><p class="mut">${esc(sc.name)} · يُرسل فوراً إلى ${esc(aaEmp(sc.responsibleId).name||'المسؤول')}</p><label>النوع</label><input id="iL" value="حضور"><label style="margin-top:8px">الصلاحية (دقيقة)</label><input id="iV" type="number" min="1" value="${sc.validMin}">
+  <div class="row" style="margin-top:12px"><button class="btn pri" id="iGo">إصدار وإرسال</button><button class="btn sec" onclick="closeDlg()">إلغاء</button></div>`);
+  $('#iGo').onclick=async()=>{try{const j=await jpost('/api/mobile/attadm/issue',{scheduleId:id,label:$('#iL').value,validMin:+$('#iV').value});closeDlg();toast('أُرسل الرمز إلى المسؤول');aaTab='codes';await aaLoad();renderAttAdm();aaCode(j.session.id)}catch(e){toast(e.message)}}};
+window.aaCancel=async id=>{if(!(await confirmDlg('إلغاء الرمز','سيتوقف قبول هذا الرمز فوراً. متابعة؟','إلغاء الرمز','رجوع')))return;try{await jpost('/api/mobile/attadm/cancel',{id});await aaLoad();renderAttAdm()}catch(e){toast(e.message)}};
+window.aaCode=id=>{const x=AA.sessions.find(y=>y.id===id);if(!x)return;
+  dlg(`<h3>رمز ${esc(x.label)} – ${esc(x.scheduleName)}</h3><div class="mut">صالح حتى ${hmT(x.expiresAt)} · <span data-exp="${x.expiresAt}">${leftTxt(x.expiresAt)}</span></div><div style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px;margin:10px 0">${code128(x.code)}</div><div class="mut" dir="ltr" style="text-align:center;font-family:monospace">${x.code}</div>
+  <div class="row" style="margin-top:12px"><button class="btn pri" onclick="aaExport('${id}','png')">⬇ تنزيل صورة</button>${navigator.share?`<button class="btn sec" onclick="aaExport('${id}','share')">مشاركة</button>`:''}<button class="btn sec" onclick="aaExport('${id}','print')">🖨 طباعة</button></div>
+  <button class="btn sec w" style="margin-top:8px" onclick="closeDlg()">إغلاق</button>`);$('.dlg svg')&&($('.dlg svg').style.cssText='width:100%;height:110px;display:block')};
+async function aaPng(x){const W=1200,H=640,c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,W,H);
+  g.fillStyle='#002816';g.fillRect(0,0,W,14);g.direction='rtl';g.textAlign='center';g.font='bold 46px Cairo, Tahoma, sans-serif';g.fillText('رمز '+x.label+' – '+x.scheduleName,W/2,90);
+  g.fillStyle='#4d5d54';g.font='28px Cairo, Tahoma, sans-serif';g.fillText('الطاقة الوطنية · صالح حتى الساعة '+hmT(x.expiresAt)+' · '+fmtDT(Date.parse(x.startsAt)).split('  ')[0],W/2,140);
+  const svg=code128(x.code).replace('<svg ','<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="340" ');const im=new Image();im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);await im.decode();g.imageSmoothingEnabled=false;g.drawImage(im,50,180,1100,340);
+  g.fillStyle='#000';g.font='30px monospace';g.direction='ltr';g.fillText(x.code,W/2,580);return await new Promise(r=>c.toBlob(r,'image/png'))}
+async function saveBlob(blob,name){const AB=window.AndroidBridge||(function(){try{return parent.AndroidBridge}catch(_){return null}})();
+  if(AB&&(AB.saveFile||AB.shareFile)){const d=await new Promise(r=>{const f=new FileReader();f.onload=()=>r(String(f.result).split(',')[1]);f.readAsDataURL(blob)});const o=AB.saveFile?AB.saveFile(d,name,blob.type):AB.shareFile(d,name,blob.type);if(String(o||'').indexOf('ok')===0)return toast('تم الحفظ في التنزيلات');}
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000)}
+window.aaExport=async(id,how)=>{const x=AA.sessions.find(y=>y.id===id);if(!x)return;if(Date.parse(x.expiresAt)<=nowC())return toast('انتهت صلاحية هذا الرمز');
+  try{const blob=await aaPng(x);const name='رمز-'+x.label+'-'+x.scheduleName.replace(/[\\/:*?"<>|]/g,'')+'.png';
+    if(how==='png')await saveBlob(blob,name);
+    else if(how==='share'){await navigator.share({files:[new File([blob],name,{type:'image/png'})],title:'رمز '+x.label})}
+    else{const u=URL.createObjectURL(blob);const f=document.createElement('iframe');f.style.cssText='position:fixed;width:0;height:0;border:0';document.body.appendChild(f);
+      f.contentDocument.write(`<html dir="rtl"><body style="margin:0;text-align:center"><img src="${u}" style="width:100%;max-width:700px" onload="setTimeout(()=>print(),200)"></body></html>`);f.contentDocument.close();setTimeout(()=>f.remove(),60000)}
+    jpost('/api/mobile/attadm/export',{id,how}).catch(()=>{})}catch(e){if(e&&e.name!=='AbortError')toast('تعذّر التصدير: '+(e.message||e))}};
+window.aaCsv=async()=>{try{const r=await fetchT(cfg.server+'/api/mobile/attadm/csv',{headers:{Authorization:'Bearer '+cfg.token}},30000);if(!r.ok)throw new Error('خطأ '+r.status);await saveBlob(await r.blob(),'سجل-الحضور-بالرمز.csv')}catch(e){toast(e.message)}};
+
 async function renderHome(){const e=cfg.employee||{};const n=await pendingCount();const ts=tasks();
   const open=ts.filter(t=>nextStep(t));const done=ts.filter(t=>!nextStep(t));
   const isToday=a=>a&&new Date(a).toLocaleDateString('en-CA',{timeZone:TZ})===todayStr();const todayIn=localEv().some(x=>x.step==='wh_in'&&x.emp===e.code&&isToday(x.at))||ts.some(t=>(t.progress||[]).some(p=>p.step==='wh_in'&&p.employeeId===e.id&&isToday(p.at)));
@@ -614,6 +690,7 @@ async function renderHome(){const e=cfg.employee||{};const n=await pendingCount(
    ${has('execution')?`<button class="tile big" onclick="openTool('execution')"><span class="i">🛠️</span><b>تطبيق التنفيذ</b><small>تقرير تنفيذ PDF</small></button>`:''}
   </div>`:''}
   <div class="tiles">
+   ${has('attadmin')?`<button class="tile" onclick="openAttAdm()"><span class="i">🔐</span><b>إدارة رموز الحضور</b><small>الجداول · إصدار وتصدير الرمز</small></button>`:''}
    ${has('attendance')?`<button class="tile" onclick="attScan()"><span class="i">🕘</span><b>مسح رمز الحضور</b><small>رمز المسؤول + سيلفي</small></button>`:''}
    ${has('obstacles')?`<button class="tile" onclick="openObs()"><span class="i">⚠️</span><b>الإبلاغ عن معوّق</b><small>فيديو مباشر يوضح المشكلة</small></button>`:''}
    ${has('reports')?`<button class="tile" onclick="openReport()"><span class="i">📤</span><b>رفع تقرير / استمارة</b><small>PDF · صور · مستندات</small></button>`:''}
@@ -846,7 +923,7 @@ async function embedLogin(force){try{const P=window.parent&&window.parent.__neFi
     const j=await P(force);cfg={...cfg,server:location.origin,token:j.token,employee:j.employee,via:'erp',demo:false};saveCfg();boot=j;LS.set('boot',boot);return true}
   catch(e){$('#sBoot').innerHTML=`<div class="card"><div class="body" style="text-align:center"><p>${esc(e.message)}</p></div></div>`;show('sBoot',false);return false}}
 function embedRoute(){const h=(location.hash||'').slice(1);if(!cfg.token)return;closeTool();
-  if(h==='survey'||h==='execution')openTool(h);else if(h==='obstacles')openObs();else if(h==='reports')openReport();else{show('sHome',false);renderHome()}}
+  if(h==='survey'||h==='execution')openTool(h);else if(h==='attadm'){show('sHome',false);renderHome();openAttAdm()}else if(h==='obstacles')openObs();else if(h==='reports')openReport();else{show('sHome',false);renderHome()}}
 async function launcher(){show('sBoot',false);$('#bootAct').classList.add('hidden');$('#bootSpin').classList.remove('hidden');$('#bootMsg').textContent='جارٍ الاتصال بخادم الشركة…';
   if(await goServer())return;$('#bootSpin').classList.add('hidden');$('#bootMsg').textContent='لا يوجد اتصال بخادم الشركة. تأكد من الإنترنت ثم أعد المحاولة. السجلات الميدانية المحفوظة على الجهاز تُرسل تلقائياً عند الاتصال.';
   $('#bootSrv').value=cfg.server||DEF_SERVER;$('#bootAct').classList.remove('hidden')}
