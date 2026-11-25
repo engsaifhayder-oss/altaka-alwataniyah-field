@@ -123,6 +123,7 @@ tr.g td{font-weight:600;background:#fbfcfb}
 #pe .pe-page .tw{max-height:none;overflow:visible;border:0}#pe .pe-page th{position:static}#pe .pe-page .btn{display:none}#pe .pe-page .card{border:0;padding:0}
 #pe .pe-tbl{border:1px solid var(--line);border-radius:8px;padding:6px 8px;margin-bottom:8px}
 #pe .pe-tbl b{font-size:12px;color:var(--mut)}
+.pe-mv{float:left;font-weight:inherit;margin-inline-start:12px}
 @media (max-width:900px){#pe{flex-direction:column}#pe .pe-side{width:auto;max-height:45vh;border-right:0;border-bottom:1px solid var(--line)}#pe .pe-wrap{padding:10px}#pe .pe-page{padding:6mm 5mm;min-height:0}}
 @media print{#pe{display:none!important}}
 .pfoot{margin-top:20px;border-top:1px solid #ccc;padding-top:6px;font-size:11px;color:#666;text-align:center}
@@ -561,8 +562,11 @@ function peGrid(t){const rows=[...t.rows],occ=[];let n=0;
 function peCols(t){const n=peGrid(t),hr=t.rows[0];if(!hr)return null;const cells=[...hr.cells];
   if(cells.length<3||cells.some(c=>c.tagName!=='TH')||cells.some(c=>c._s!==1)||cells.length!==n)return null;
   return cells.map((c,i)=>(c.textContent.trim()||('عمود '+(i+1))))}
-function peApplyCols(t,hidden){peGrid(t);[...t.rows].forEach(tr=>[...tr.cells].forEach(td=>{let v=0;for(let j=0;j<td._s;j++)if(!hidden.has(td._c+j))v++;
-  if(!v){td.style.display='none'}else{td.style.display='';td.colSpan=v}}))}
+function peApplyCols(t,hidden){peGrid(t);[...t.rows].forEach(tr=>{const cells=[...tr.cells];tr.querySelectorAll('.pe-mv').forEach(e=>e.remove());
+  cells.forEach(td=>{let v=0;for(let j=0;j<td._s;j++)if(!hidden.has(td._c+j))v++;if(!v){td.style.display='none'}else{td.style.display='';td.colSpan=v}});
+  /* صفوف المجاميع: إذا أُخفي عمود قيمتها تبقى القيمة ظاهرة على يسار السطر نفسه */
+  const lab=cells.find(td=>td._s>1&&td.style.display!=='none');if(!lab)return;
+  cells.forEach(td=>{if(td!==lab&&td._s===1&&td.style.display==='none'&&td.textContent.trim()){const m=document.createElement('span');m.className='pe-mv';m.innerHTML=td.innerHTML;lab.appendChild(m)}})})}
 function openPrintEditor(html){document.getElementById('pe')?.remove();
   const o=document.createElement('div');o.id='pe';
   o.innerHTML=`<div class="pe-side"><h3>تعديل قبل الطباعة</h3><p class="pe-hint">اختر ما يظهر في الورقة. يمكنك أيضاً النقر على أي نص في الورقة وتعديله أو حذفه مباشرة.</p><div id="peCtl"></div>
