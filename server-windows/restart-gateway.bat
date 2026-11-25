@@ -1,6 +1,6 @@
 @echo off
 rem Restart the ALTAKA-ALWATANIYAH gateway only (the accounting program keeps running)
-powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -match 'gateway.server\.js' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }" >nul 2>&1
+powershell -NoProfile -Command "Get-NetTCPConnection -State Listen -LocalPort 8780 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }" >nul 2>&1
 schtasks /End /TN "ALTAKA-ALWATANIYAH Gateway" >nul 2>&1
 schtasks /Run /TN "ALTAKA-ALWATANIYAH Gateway"
 timeout /t 4 >nul

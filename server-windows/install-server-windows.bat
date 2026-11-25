@@ -45,7 +45,7 @@ echo [2/4] Gateway files  -^>  %DST%
 rem stop a running gateway (old Startup shortcut / old task) so files and port 8780 are free
 schtasks /End /TN "ALTAKA-ALWATANIYAH Gateway" >nul 2>&1
 del "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\ALTAKA Field Gateway.lnk" >nul 2>&1
-powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -match 'gateway.server\.js' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }" >nul 2>&1
+powershell -NoProfile -Command "Get-NetTCPConnection -State Listen -LocalPort 8780 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }" >nul 2>&1
 robocopy "%SRC%" "%DST%" /E /XD data /NFL /NDL /NJH /NJS /NP >nul
 if not exist "%DST%\data\db.json" (
   rem migrate data from the newest old gateway folder on the Desktop / Downloads
