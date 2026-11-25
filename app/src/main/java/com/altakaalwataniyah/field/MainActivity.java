@@ -20,6 +20,10 @@ import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.provider.Settings;
 import android.view.WindowManager;
+import android.graphics.Color;
+import android.app.DownloadManager;
+import android.webkit.CookieManager;
+import android.webkit.URLUtil;
 import android.webkit.GeolocationPermissions;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
@@ -77,6 +81,8 @@ public class MainActivity extends Activity {
 
         web = new WebView(this);
         setContentView(web);
+        // لون شريط الحالة بلون منظومة ERP
+        try { getWindow().setStatusBarColor(Color.parseColor("#0D2620")); getWindow().setNavigationBarColor(Color.parseColor("#F3F7F4")); } catch (Exception ignored) { }
 
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
@@ -86,6 +92,32 @@ public class MainActivity extends Activity {
         s.setAllowFileAccess(false);
         s.setAllowContentAccess(true);
         s.setMediaPlaybackRequiresUserGesture(false);
+        // واجهة الهاتف: عرض الصفحة بعرض الشاشة، وحجم خط ثابت حتى لا يكبر الخط من إعدادات النظام فيكسر الواجهة،
+        // مع إمكانية التكبير بالأصابع للجداول الكبيرة
+        s.setUseWideViewPort(true);
+        s.setLoadWithOverviewMode(true);
+        s.setTextZoom(100);
+        s.setSupportZoom(true);
+        s.setBuiltInZoomControls(true);
+        s.setDisplayZoomControls(false);
+        s.setUserAgentString(s.getUserAgentString() + " AltakaERP-Android");
+        web.setOverScrollMode(WebView.OVER_SCROLL_NEVER);
+        // تنزيل الملفات العادية (روابط http) عبر مدير التنزيلات
+        web.setDownloadListener((url, ua, cd, mime, len) -> {
+            if (url == null || !(url.startsWith("http://") || url.startsWith("https://"))) return;
+            try {
+                DownloadManager.Request r = new DownloadManager.Request(Uri.parse(url));
+                String name = URLUtil.guessFileName(url, cd, mime);
+                r.setMimeType(mime);
+                String ck = CookieManager.getInstance().getCookie(url);
+                if (ck != null) r.addRequestHeader("Cookie", ck);
+                r.addRequestHeader("User-Agent", ua);
+                r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                r.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name);
+                ((DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE)).enqueue(r);
+                android.widget.Toast.makeText(this, "جارٍ التنزيل: " + name, android.widget.Toast.LENGTH_SHORT).show();
+            } catch (Exception ignored) { }
+        });
         // خادم الشركة يعمل غالباً على http داخل الشبكة المحلية
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
 
